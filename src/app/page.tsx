@@ -25,7 +25,11 @@ export default function AuctionPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:8080/api/auctions");
+      // 현재 호스트의 IP를 사용하여 API 서버에 접근
+      const apiHost = window.location.hostname === 'localhost' 
+        ? 'localhost' 
+        : window.location.hostname;
+      const response = await fetch(`http://${apiHost}:8080/api/auctions`);
       if (!response.ok) throw new Error("경매 목록 조회 실패");
       const data = await response.json();
       setAuctions(data.data);
