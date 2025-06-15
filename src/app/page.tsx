@@ -17,12 +17,17 @@ import { Button } from "@/components/ui/button";
 export default function AuctionPage() {
   const [auctions, setAuctions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState<{ [key: number]: string }>({});
 
-  // ✅ 경매 데이터 불러오기 (Polling 포함)
-  const fetchAuctions = async () => {
-    setLoading(true);
+  // ✅ 경매 데이터 불러오기 (초기 로딩용)
+  const fetchAuctions = async (isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError("");
     try {
       // 현재 호스트의 IP를 사용하여 API 서버에 접근
@@ -36,17 +41,21 @@ export default function AuctionPage() {
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   };
 
   // ✅ 최초 호출 및 주기적 갱신
   useEffect(() => {
-    fetchAuctions(); // 최초 호출
+    fetchAuctions(true); // 최초 호출 (로딩 표시)
 
     const interval = setInterval(() => {
       console.log("🔄 메인 페이지 경매 목록 갱신 중...");
-      fetchAuctions(); // 주기적 갱신
+      fetchAuctions(false); // 주기적 갱신 (로딩 표시 안함)
     }, 5000); // 5초마다
 
     return () => clearInterval(interval); // 언마운트 시 해제
@@ -100,6 +109,11 @@ export default function AuctionPage() {
   return (
     <div className="p-8 space-y-8">
       {loading && <p className="text-gray-600">불러오는 중...</p>}
+      {refreshing && (
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm z-50">
+          🔄 갱신 중...
+        </div>
+      )}
       {error && <p className="text-red-500">{error}</p>}
 
       <AuctionSection
