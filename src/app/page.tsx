@@ -167,7 +167,7 @@ const AuctionCard = ({
       {auction.imageUrl && (
         <div className="w-full h-48 relative rounded overflow-hidden mb-4">
           <Image
-            src={auction.imageUrl.trim()}
+            src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
             alt={auction.productName}
             fill
             style={{ objectFit: "cover" }}

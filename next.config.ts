@@ -21,7 +21,8 @@ const nextConfig = {
       "image.idus.com",
       "www.sleepmed.or.kr",
       "www.biz-con.co.kr",
-      "cdn.gpkorea.com", 
+      "cdn.gpkorea.com",
+      "example.com", // API에서 사용하는 예시 도메인
     ],
   },
 
