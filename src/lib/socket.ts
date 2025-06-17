@@ -3,6 +3,19 @@ import { Client } from "@stomp/stompjs";
 
 let stompClient: Client | null = null;
 
+// 프로덕션 환경에서는 HTTPS(WSS)를 사용하고, 개발 환경에서는 HTTP localhost를 사용
+const getWsUrl = () => {
+  if (typeof window !== 'undefined') {
+    // 클라이언트 사이드에서 실행
+    if (window.location.protocol === 'https:') {
+      // 프로덕션 환경 (HTTPS/WSS)
+      return process.env.NEXT_PUBLIC_WS_URL || 'https://auction-service-fe.vercel.app:8080/ws';
+    }
+  }
+  // 개발 환경 또는 서버 사이드
+  return process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
+};
+
 /**
  * 소켓 연결 함수 (토큰 포함)
  * @param token JWT 토큰
@@ -12,7 +25,7 @@ export const connectStomp = (token: string): Client => {
   stompClient = new Client({
     webSocketFactory: () => {
       // SockJS 연결, 쿼리 파라미터로 토큰 전달 (핸드쉐이크)
-      return new SockJS(`http://localhost:8080/ws?token=${token}`);
+      return new SockJS(`${getWsUrl()}?token=${token}`);
     },
     connectHeaders: {
       Authorization: `Bearer ${token}`, // STOMP 연결 시 헤더에 토큰 추가

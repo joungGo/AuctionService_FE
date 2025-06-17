@@ -25,10 +25,19 @@ export default function AuctionCloseButton({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      if (window.location.protocol === 'https:') {
+        return process.env.NEXT_PUBLIC_API_URL || 'https://auction-service-fe.vercel.app:8080/api';
+      }
+    }
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  };
+
   const handleClose = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:8080/api/auctions/${auctionId}/close`, {
+      const response = await fetch(`${getApiBaseUrl()}/auctions/${auctionId}/close`, {
         method: "POST",
       });
 

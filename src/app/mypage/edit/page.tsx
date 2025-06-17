@@ -5,6 +5,19 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { getAccessToken, getUserInfo } from "@/lib/api/auth";
 
+// 프로덕션 환경에서는 HTTPS를 사용하고, 개발 환경에서는 HTTP localhost를 사용
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // 클라이언트 사이드에서 실행
+    if (window.location.protocol === 'https:') {
+      // 프로덕션 환경 (HTTPS)
+      return process.env.NEXT_PUBLIC_API_URL || 'https://auction-service-fe.vercel.app:8080/api';
+    }
+  }
+  // 개발 환경 또는 서버 사이드
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+};
+
 export default function MyPageEdit() {
   const router = useRouter();
   const [nickname, setNickname] = useState("");
@@ -18,7 +31,7 @@ export default function MyPageEdit() {
     const { userUUID } = getUserInfo();
 
     axios
-      .get(`http://localhost:8080/api/auth/users/${userUUID}`, {
+      .get(`${getApiBaseUrl()}/auth/users/${userUUID}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -58,7 +71,7 @@ export default function MyPageEdit() {
 
     try {
       await axios.put(
-        `http://localhost:8080/api/auth/users/${userUUID}`,
+        `${getApiBaseUrl()}/auth/users/${userUUID}`,
         {
           nickname,
           email,

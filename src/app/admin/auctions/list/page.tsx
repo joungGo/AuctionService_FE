@@ -33,6 +33,19 @@ interface Auction {
   imageUrl?: string;
 }
 
+// 프로덕션 환경에서는 HTTPS를 사용하고, 개발 환경에서는 HTTP localhost를 사용
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // 클라이언트 사이드에서 실행
+    if (window.location.protocol === 'https:') {
+      // 프로덕션 환경 (HTTPS)
+      return process.env.NEXT_PUBLIC_API_URL || 'https://auction-service-fe.vercel.app:8080/api';
+    }
+  }
+  // 개발 환경 또는 서버 사이드
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+};
+
 export default function AdminAuctionListPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [filter, setFilter] = useState("all");
@@ -43,7 +56,7 @@ export default function AdminAuctionListPage() {
   const fetchAuctions = async () => {
     try {
       const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:8080/api/admin/auctions", {
+      const response = await fetch(`${getApiBaseUrl()}/admin/auctions`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

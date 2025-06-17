@@ -27,10 +27,16 @@ const nextConfig = {
   },
 
   async rewrites() {
+    // 환경변수 또는 프로덕션 환경에 따라 API URL 결정
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+                   (process.env.NODE_ENV === 'production' 
+                     ? "https://auction-service-fe.vercel.app:8080/api" 
+                     : "http://localhost:8080/api");
+    
     return [
       {
         source: "/api/auctions",
-        destination: "http://localhost:8080/api/auctions",
+        destination: `${apiUrl}/auctions`,
       },
     ];
   },
