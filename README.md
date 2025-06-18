@@ -4,21 +4,32 @@ This is a [Next.js](https://nextjs.org) project for an auction service.
 
 ## Environment Setup
 
+### Backend Server Configuration
+
+- **Development**: `http://localhost:8080/api`
+- **Production**: `http://43.201.193.75:8080/api` (via Next.js API proxy)
+
 ### Mixed Content Issue Fix
 
 This project automatically detects the environment and uses appropriate API URLs:
 
-- **Development**: Uses `http://localhost:8080/api` for API calls
-- **Production (HTTPS)**: Uses `https://auction-service-fe.vercel.app:8080/api` for API calls
+- **Development**: Direct API calls to `http://localhost:8080/api`
+- **Production (HTTPS)**: Uses Next.js API proxy (`/api/proxy/*`) to avoid Mixed Content issues
+
+### Next.js API Proxy
+
+In production, all API calls are routed through `/api/proxy/[...path]` to resolve Mixed Content issues when calling HTTP backend from HTTPS frontend.
+
+Example:
+- Client calls: `https://auction-service-fe.vercel.app/api/proxy/auth/login`
+- Proxy forwards to: `http://43.201.193.75:8080/api/auth/login`
 
 ### Environment Variables
 
-You can override the default API URLs by setting environment variables:
-
-Create a `.env.local` file in the root directory:
+You can override the default URLs by setting environment variables:
 
 ```bash
-# API Base URL
+# API Base URL (overrides automatic detection)
 NEXT_PUBLIC_API_URL=https://your-api-domain.com/api
 
 # WebSocket URL  
@@ -58,8 +69,21 @@ The application uses a centralized configuration system located in `src/lib/conf
 Modern browsers block Mixed Content (HTTP requests from HTTPS pages) for security reasons. This project solves this by:
 
 1. **Automatic Environment Detection**: Detects if the page is served over HTTPS
-2. **Dynamic URL Selection**: Uses HTTPS API URLs in production and HTTP URLs in development
+2. **Next.js API Proxy**: Uses server-side proxy in production to avoid Mixed Content issues
 3. **Environment Variable Support**: Allows custom API URLs via environment variables
+
+**Production Architecture:**
+```
+HTTPS Client → Next.js API Proxy → HTTP Backend (43.201.193.75:8080)
+```
+
+## WebSocket Limitations
+
+⚠️ **WebSocket Mixed Content Issue**: WebSocket connections from HTTPS to HTTP may still be blocked by browsers. Consider:
+
+1. Setting up HTTPS on the backend server (recommended)
+2. Using a reverse proxy with SSL termination
+3. Implementing WebSocket over HTTPS (WSS)
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
