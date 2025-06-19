@@ -28,7 +28,7 @@ export const getApiBaseUrl = (): string => {
 
 /**
  * 현재 환경에 맞는 WebSocket URL을 반환합니다.
- * 프로덕션 환경에서는 직접 백엔드 IP로 연결을 시도합니다.
+ * 프로덕션 환경에서는 HTTPS 도메인을 사용합니다.
  */
 export const getWsUrl = (): string => {
   // 환경변수가 설정되어 있으면 우선 사용
@@ -39,14 +39,13 @@ export const getWsUrl = (): string => {
   // 클라이언트 사이드에서 실행 중인 경우
   if (typeof window !== 'undefined') {
     if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 - 백엔드 IP 주소 사용 (WebSocket은 프록시 불가)
-      // 주의: Mixed Content 문제가 있을 수 있음
-      return 'http://43.201.193.75:8080/ws';
+      // 프로덕션 환경 - HTTPS 도메인 사용
+      return 'wss://auctionservice.site/ws';
     }
   }
 
   // 개발 환경 또는 서버 사이드 (기본값)
-  return 'http://localhost:8080/ws';
+  return 'ws://localhost:8080/ws';
 };
 
 /**

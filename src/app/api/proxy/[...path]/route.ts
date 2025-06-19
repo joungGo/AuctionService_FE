@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = 'http://43.201.193.75:8080';
+const BACKEND_URL = 'https://auctionservice.site';
 
 export async function GET(
   request: NextRequest,
