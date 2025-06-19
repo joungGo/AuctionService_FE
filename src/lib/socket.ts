@@ -8,8 +8,8 @@ const getWsUrl = () => {
   if (typeof window !== 'undefined') {
     // 클라이언트 사이드에서 실행
     if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 (HTTPS/WSS)
-      return process.env.NEXT_PUBLIC_WS_URL || 'https://auction-service-fe.vercel.app:8080/ws';
+      // 프로덕션 환경 (HTTPS/WSS) - 올바른 백엔드 도메인 사용
+      return process.env.NEXT_PUBLIC_WS_URL || 'wss://auctionservice.site/ws';
     }
   }
   // 개발 환경 또는 서버 사이드
