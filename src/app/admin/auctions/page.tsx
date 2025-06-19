@@ -6,18 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-// 프로덕션 환경에서는 HTTPS를 사용하고, 개발 환경에서는 HTTP localhost를 사용
-const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    // 클라이언트 사이드에서 실행
-    if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 (HTTPS)
-      return process.env.NEXT_PUBLIC_API_URL || 'https://auction-service-fe.vercel.app:8080/api';
-    }
-  }
-  // 개발 환경 또는 서버 사이드
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
-};
+import { getApiBaseUrl } from "@/lib/config";
 
 export default function AdminAuctionCreatePage() {
   const [productName, setProductName] = useState("");

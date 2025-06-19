@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/Toast";
+import { getApiBaseUrl } from "@/lib/config";
 
 interface AuctionCloseButtonProps {
   auctionId: number;
@@ -24,15 +25,6 @@ export default function AuctionCloseButton({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-
-  const getApiBaseUrl = () => {
-    if (typeof window !== 'undefined') {
-      if (window.location.protocol === 'https:') {
-        return process.env.NEXT_PUBLIC_API_URL || 'https://auction-service-fe.vercel.app:8080/api';
-      }
-    }
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
-  };
 
   const handleClose = async () => {
     try {
