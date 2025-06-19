@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getApiBaseUrl } from "@/lib/config";
 
 export default function AuctionPage() {
   const [auctions, setAuctions] = useState<any[]>([]);
@@ -30,15 +31,20 @@ export default function AuctionPage() {
     }
     setError("");
     try {
-      // 현재 호스트의 IP를 사용하여 API 서버에 접근
-      const apiHost = window.location.hostname === 'localhost' 
-        ? 'localhost' 
-        : window.location.hostname;
-      const response = await fetch(`http://${apiHost}:8080/api/auctions`);
+      // config.ts의 getApiBaseUrl()를 사용하여 환경에 맞는 API URL 사용
+      const apiBaseUrl = getApiBaseUrl();
+      const fullUrl = `${apiBaseUrl}/auctions`;
+      console.log('[page.tsx] Fetching auctions from:', fullUrl);
+      
+      const response = await fetch(fullUrl);
+      console.log('[page.tsx] Response status:', response.status);
+      
       if (!response.ok) throw new Error("경매 목록 조회 실패");
       const data = await response.json();
+      console.log('[page.tsx] Response data:', data);
       setAuctions(data.data);
     } catch (err: any) {
+      console.error('[page.tsx] Fetch error:', err);
       setError(err.message);
     } finally {
       if (isInitialLoad) {
