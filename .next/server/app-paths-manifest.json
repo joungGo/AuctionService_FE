@@ -1,14 +1,7 @@
 {
-  "/api/proxy/[...path]/route": "app/api/proxy/[...path]/route.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/admin/auctions/list/page": "app/admin/auctions/list/page.js",
-  "/auctions/[auctionId]/page": "app/auctions/[auctionId]/page.js",
-  "/admin/auctions/page": "app/admin/auctions/page.js",
-  "/auth/register/page": "app/auth/register/page.js",
-  "/mypage/edit/page": "app/mypage/edit/page.js",
-  "/mypage/page": "app/mypage/page.js",
   "/page": "app/page.js",
-  "/auctions/winner/[userUUID]/page": "app/auctions/winner/[userUUID]/page.js",
-  "/auth/login/page": "app/auth/login/page.js"
+  "/auth/login/page": "app/auth/login/page.js",
+  "/auctions/[auctionId]/page": "app/auctions/[auctionId]/page.js",
+  "/admin/auctions/page": "app/admin/auctions/page.js"
 }
