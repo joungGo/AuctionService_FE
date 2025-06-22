@@ -50,18 +50,29 @@ export const connectStomp = (token: string): Client => {
       
       console.log(`[socket.ts] Creating SockJS connection to: ${wsUrl}?token=${token.substring(0, 20)}...`);
       
-      // SockJS transport 옵션 명시적 설정
+      // SockJS transport 옵션 명시적 설정 (CORS 문제 해결 시도)
       return new SockJS(`${wsUrl}?token=${token}`, null, {
         transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-        debug: true,
-        devel: false
+        debug: false, // 디버그 로그 감소
+        devel: false,
+        // 연결 유지 설정 강화
+        timeout: 15000,
+        protocols_whitelist: ['websocket', 'xhr-streaming', 'xhr-polling'],
+        info: {
+          websocket: true,
+          origins: ['*:*'],
+          cookie_needed: false,
+          entropy: Math.random()
+        }
       });
     },
     connectHeaders: {
       Authorization: `Bearer ${token}`, // STOMP 연결 시 헤더에 토큰 추가
     },
     debug: (str) => console.log("[STOMP DEBUG]", str),
-    reconnectDelay: 5000, // 재연결 주기 (5초)
+    reconnectDelay: 3000, // 재연결 주기를 3초로 단축
+    heartbeatIncoming: 4000, // 서버로부터 heartbeat 수신 간격
+    heartbeatOutgoing: 4000, // 서버로 heartbeat 전송 간격
     onConnect: (frame) => {
       console.log("[socket.ts] STOMP 연결 성공:", frame);
     },
@@ -71,10 +82,19 @@ export const connectStomp = (token: string): Client => {
     },
     onWebSocketClose: (event) => {
       console.error("[socket.ts] WebSocket 연결 종료:", event);
+      console.error("[socket.ts] 연결 종료 상세:", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        timestamp: new Date().toISOString()
+      });
     },
     onWebSocketError: (event) => {
       console.error("[socket.ts] WebSocket 에러:", event);
     },
+    onDisconnect: (frame) => {
+      console.log("[socket.ts] STOMP 연결 해제:", frame);
+    }
   });
 
   console.log("[socket.ts] STOMP 클라이언트 연결 시도");
