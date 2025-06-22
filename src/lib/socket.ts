@@ -5,6 +5,13 @@ let stompClient: Client | null = null;
 
 // 프로덕션 환경에서는 HTTPS(WSS)를 사용하고, 개발 환경에서는 HTTP localhost를 사용
 const getWsUrl = () => {
+  console.log('[socket.ts] Environment check:', {
+    isClient: typeof window !== 'undefined',
+    protocol: typeof window !== 'undefined' ? window.location.protocol : 'N/A',
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+    envVar: process.env.NEXT_PUBLIC_WS_URL
+  });
+
   if (typeof window !== 'undefined') {
     // 클라이언트 사이드에서 실행
     if (window.location.protocol === 'https:') {
@@ -29,13 +36,45 @@ export const connectStomp = (token: string): Client => {
   stompClient = new Client({
     webSocketFactory: () => {
       // SockJS 연결, 쿼리 파라미터로 토큰 전달 (핸드쉐이크)
-      return new SockJS(`${getWsUrl()}?token=${token}`);
+      let wsUrl = getWsUrl();
+      console.log(`[socket.ts] Original WebSocket URL: ${wsUrl}`);
+      
+      // SockJS를 위해 WSS -> HTTPS, WS -> HTTP 변환
+      if (wsUrl.startsWith('wss://')) {
+        wsUrl = wsUrl.replace('wss://', 'https://');
+        console.log(`[socket.ts] Converted WSS to HTTPS: ${wsUrl}`);
+      } else if (wsUrl.startsWith('ws://')) {
+        wsUrl = wsUrl.replace('ws://', 'http://');
+        console.log(`[socket.ts] Converted WS to HTTP: ${wsUrl}`);
+      }
+      
+      console.log(`[socket.ts] Creating SockJS connection to: ${wsUrl}?token=${token.substring(0, 20)}...`);
+      
+      // SockJS transport 옵션 명시적 설정
+      return new SockJS(`${wsUrl}?token=${token}`, null, {
+        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+        debug: true,
+        devel: false
+      });
     },
     connectHeaders: {
       Authorization: `Bearer ${token}`, // STOMP 연결 시 헤더에 토큰 추가
     },
     debug: (str) => console.log("[STOMP DEBUG]", str),
     reconnectDelay: 5000, // 재연결 주기 (5초)
+    onConnect: (frame) => {
+      console.log("[socket.ts] STOMP 연결 성공:", frame);
+    },
+    onStompError: (frame) => {
+      console.error("[socket.ts] STOMP 에러:", frame.headers['message']);
+      console.error("[socket.ts] STOMP 에러 세부사항:", frame.body);
+    },
+    onWebSocketClose: (event) => {
+      console.error("[socket.ts] WebSocket 연결 종료:", event);
+    },
+    onWebSocketError: (event) => {
+      console.error("[socket.ts] WebSocket 에러:", event);
+    },
   });
 
   console.log("[socket.ts] STOMP 클라이언트 연결 시도");
