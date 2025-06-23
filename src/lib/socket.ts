@@ -81,13 +81,26 @@ export const connectStomp = (token: string): Client => {
       console.error("[socket.ts] STOMP 에러 세부사항:", frame.body);
     },
     onWebSocketClose: (event) => {
-      console.error("[socket.ts] WebSocket 연결 종료:", event);
-      console.error("[socket.ts] 연결 종료 상세:", {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-        timestamp: new Date().toISOString()
-      });
+      // WebSocket 종료 코드에 따라 로그 레벨 구분
+      if (event.code === 1000 || event.code === 0) {
+        // 정상적인 연결 종료 (1000: Normal Closure, 0: 정상 종료)
+        console.log("[socket.ts] WebSocket 정상 연결 종료:", event.code);
+        console.log("[socket.ts] 연결 종료 상세:", {
+          code: event.code,
+          reason: event.reason || "정상 종료",
+          wasClean: event.wasClean,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // 비정상적인 연결 종료
+        console.error("[socket.ts] WebSocket 비정상 연결 종료:", event.code);
+        console.error("[socket.ts] 연결 종료 상세:", {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          timestamp: new Date().toISOString()
+        });
+      }
     },
     onWebSocketError: (event) => {
       console.error("[socket.ts] WebSocket 에러:", event);
