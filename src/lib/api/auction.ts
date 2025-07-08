@@ -3,7 +3,9 @@ import { getApiBaseUrl } from '../config';
 const API_BASE_URL = getApiBaseUrl();
 
 export const getAuctionDetail = async (auctionId: string) => {
-  const res = await fetch(`${API_BASE_URL}/auctions/${auctionId}`);
+  const res = await fetch(`${API_BASE_URL}/auctions/${auctionId}`, {
+    credentials: 'include',
+  });
   return res.json();
 };
 

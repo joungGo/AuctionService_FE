@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getApiBaseUrl } from "@/lib/config";
 
 // ✅ 서버 응답 타입 (status 제거)
 interface RawAuction {
@@ -33,32 +34,35 @@ interface Auction {
   imageUrl?: string;
 }
 
-import { getApiBaseUrl } from "@/lib/config";
-
 export default function AdminAuctionListPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const now = dayjs();
 
   // ✅ 데이터 가져오기
   const fetchAuctions = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(`${getApiBaseUrl()}/admin/auctions`, {
+      const API_BASE_URL = getApiBaseUrl();
+      
+      const response = await fetch(`${API_BASE_URL}/admin/auctions`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include', // 쿠키 기반 인증
       });
 
-      if (!response.ok) throw new Error("Failed to fetch auctions");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      const result = await response.json();
-
-      const normalizedAuctions: Auction[] = Array.isArray(result.data)
-        ? result.data.map((a: RawAuction) => ({
+      const data = await response.json();
+      
+      if (data.resultCode === "S-1" && Array.isArray(data.data)) {
+        const normalizedAuctions: Auction[] = data.data.map((a: RawAuction) => ({
           auctionId: a.auctionId,
           productName: a.productName,
           startTime: a.startTime,
@@ -68,12 +72,16 @@ export default function AdminAuctionListPage() {
           nickname: a.nickname,
           winnerId: a.winningBid,
           imageUrl: a.imageUrl?.trim(),
-        }))
-        : [];
-
-      setAuctions(normalizedAuctions);
-    } catch (error) {
-      console.error("❌ Error fetching auctions:", error);
+        }));
+        setAuctions(normalizedAuctions);
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (err) {
+      console.error("경매 목록 로드 실패:", err);
+      setError("경매 목록을 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,6 +104,22 @@ export default function AdminAuctionListPage() {
     if (filter === "all") return list;
     return filter === type ? list : [];
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-lg">경매 목록 로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-lg text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-10"> {/* ✅ 리스트 간 여백 충분히 넓게 */}

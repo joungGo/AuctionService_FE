@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getAccessToken } from "@/lib/api/auth";
+import { useAuth } from "@/app/context/AuthContext";
+import { getApiBaseUrl } from "@/lib/config";
 
 interface User {
   nickname: string;
@@ -19,41 +20,46 @@ interface Auction {
   imageUrl?: string;
 }
 
-import { getApiBaseUrl } from "@/lib/config";
-
 export default function MyPage() {
   const { userUUID } = useParams();
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
-    let uuid = userUUID || localStorage.getItem("userUUID");
+    // AuthContext에서 사용자 정보를 가져오거나 URL 파라미터 사용
+    let uuid = userUUID || authUser?.userUUID;
     if (!uuid) {
+      router.push("/auth/login");
       return;
     }
 
     console.log("현재 userUUID 값:", uuid);
 
-    const token = getAccessToken();
     const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type":"application/json"
+      "Content-Type": "application/json"
     };
 
     // 사용자 정보 가져오기
-    fetch(`${API_BASE_URL}/auth/users/${uuid}`, {headers})
+    fetch(`${API_BASE_URL}/auth/users/${uuid}`, {
+      headers,
+      credentials: 'include'
+    })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => data?.data && setUser(data.data))
       .catch(console.error);
 
     // 낙찰 받은 경매 목록 가져오기
-    fetch(`${API_BASE_URL}/auctions/${uuid}/winner`, {headers})
+    fetch(`${API_BASE_URL}/auctions/${uuid}/winner`, {
+      headers,
+      credentials: 'include'
+    })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => data?.data && Array.isArray(data.data) ? setAuctions(data.data) : [])
       .catch(console.error);
-  }, [userUUID]);
+  }, [userUUID, authUser, router]);
 
   return (
     <div className="max-w-3xl mx-auto p-6">
