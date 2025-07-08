@@ -6,10 +6,11 @@ export async function loginUser(email: string, password: string) {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
 
-  const res = await response.json(); // 응답 데이터를 JSON으로 변환
+  const res = await response.json();
 
   if (!response.ok) {
     throw new Error(res.msg);
@@ -26,31 +27,55 @@ export async function signupUser(
   const response = await fetch(`${API_BASE_URL}/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify({ email, password, nickname }),
   });
 
-  const res = await response.json(); // 응답 데이터를 JSON으로 변환
+  const res = await response.json();
 
   if (!response.ok) {
     throw new Error(res.msg);
   }
 
-  return res.msg; // 성공 응답 반환 (userUUID 포함)
+  return res.msg;
 }
 
-export const getAccessToken = () => {
-  return localStorage.getItem("accessToken");
-};
+export async function logoutUser() {
+  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: 'include',
+  });
 
-export const getUserInfo = () => {
-  return {
-    userUUID: localStorage.getItem("userUUID"),
-    nickname: localStorage.getItem("nickname"),
-  };
-};
+  const res = await response.json();
+
+  if (!response.ok) {
+    throw new Error(res.msg || "로그아웃 요청 실패");
+  }
+
+  return res.msg;
+}
+
+export async function checkAuthStatus() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/check`, {
+      method: "GET",
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const res = await response.json();
+    return res.data;
+  } catch (error) {
+    console.error('인증 상태 확인 실패:', error);
+    return null;
+  }
+}
 
 export const removeAuthData = () => {
-  localStorage.removeItem("accessToken");
   localStorage.removeItem("userUUID");
   localStorage.removeItem("nickname");
 };

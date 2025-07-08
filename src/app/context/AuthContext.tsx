@@ -7,39 +7,57 @@ import {
   ReactNode,
   useEffect,
 } from "react";
+import { checkAuthStatus } from "@/lib/api/auth";
+
+// 사용자 정보 타입 정의
+interface User {
+  userUUID: string;
+  nickname: string;
+  email: string;
+}
 
 // Context 안에 들어갈 데이터 타입 정의
 interface AuthContextType {
-  token: string | null;
-  setToken: (token: string | null) => void;
+  user: User | null;
+  isLoading: boolean;
+  setUser: (user: User | null) => void;
+  refreshAuth: () => Promise<void>;
 }
 
 // Context 기본값 (초기화)
 const AuthContext = createContext<AuthContextType>({
-  token: null,
-  setToken: () => {},
+  user: null,
+  isLoading: true,
+  setUser: () => {},
+  refreshAuth: async () => {},
 });
 
 // Provider 컴포넌트
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(null); // 처음에는 null로 시작
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 새로고침 시 localstorage에서 토큰 읽어옴
-  // useEffect(() => {
-  //   const storedToken = localStorage.getItem("token");
-  //   if (storedToken) {
-  //     setToken(storedToken); // localStorage에서 토큰 읽기
-  //   }
-  // }, []); // 최고 1회 실행
-  useEffect(() => {
-    const storedToken = localStorage.getItem("accessToken"); // "token"에서 "accessToken"으로 변경
-    if (storedToken) {
-      setToken(storedToken);
+  // 인증 상태 새로고침 함수
+  const refreshAuth = async () => {
+    try {
+      setIsLoading(true);
+      const userData = await checkAuthStatus();
+      setUser(userData);
+    } catch (error) {
+      console.error('인증 상태 확인 실패:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-  }, []); // 최초 1회 실행
+  };
+
+  // 컴포넌트 마운트 시 인증 상태 확인
+  useEffect(() => {
+    refreshAuth();
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ token, setToken }}>
+    <AuthContext.Provider value={{ user, isLoading, setUser, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );

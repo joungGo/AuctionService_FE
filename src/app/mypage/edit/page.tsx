@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { getAccessToken, getUserInfo } from "@/lib/api/auth";
-
+import { useAuth } from "@/app/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/config";
 
 export default function MyPageEdit() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,12 +16,19 @@ export default function MyPageEdit() {
   const [previewImage, setPreviewImage] = useState("/default-profile.png");
 
   useEffect(() => {
-    const token = getAccessToken();
-    const { userUUID } = getUserInfo();
+    if (!authUser) {
+      router.push("/auth/login");
+      return;
+    }
 
+    // AuthContext에서 사용자 정보를 가져와서 초기값 설정
+    setNickname(authUser.nickname || "");
+    setEmail(authUser.email || "");
+    
+    // 서버에서 전체 사용자 정보 가져오기
     axios
-      .get(`${getApiBaseUrl()}/auth/users/${userUUID}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      .get(`${getApiBaseUrl()}/auth/users/${authUser.userUUID}`, {
+        withCredentials: true,
       })
       .then((res) => {
         setNickname(res.data.data.nickname);
@@ -32,7 +39,7 @@ export default function MyPageEdit() {
       .catch(() => {
         alert("❌ 사용자 정보 불러오기 실패");
       });
-  }, []);
+  }, [authUser, router]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,13 +61,14 @@ export default function MyPageEdit() {
       alert("이메일을 입력해주세요.");
       return;
     }
-
-    const token = getAccessToken();
-    const { userUUID } = getUserInfo();
+    if (!authUser) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
 
     try {
       await axios.put(
-        `${getApiBaseUrl()}/auth/users/${userUUID}`,
+        `${getApiBaseUrl()}/auth/users/${authUser.userUUID}`,
         {
           nickname,
           email,
@@ -69,9 +77,9 @@ export default function MyPageEdit() {
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          withCredentials: true,
         }
       );
       alert("✅ 저장되었습니다.");
