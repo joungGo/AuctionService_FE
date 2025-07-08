@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Client } from "@stomp/stompjs";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/app/context/AuthContext";
 
 interface Message { id: number; sender: string; text: string; isMe: boolean; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
@@ -29,6 +30,7 @@ interface Auction { product: { name: string; imageUrl: string; description: stri
 export default function AuctionPage() {
   const { auctionId } = useParams() as { auctionId: string };
   const router = useRouter();
+  const { user, isLoading } = useAuth();
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,22 +42,20 @@ export default function AuctionPage() {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [client, setClient] = useState<Client | null>(null);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : "";
-  const myNickname = typeof window !== "undefined" ? localStorage.getItem("nickname") || "" : "";
-
   // 로그인 체크
   useEffect(() => {
-    if (!token) {
+    if (!isLoading && !user) {
       alert("로그인이 필요합니다.");
-      router.push("/");
+      router.push("/auth/login");
     }
-  }, [token, router]);
+  }, [user, isLoading, router]);
 
   // 웹소켓 연결 및 메시지 수신
   useEffect(() => {
-    if (!token || !auctionId) return;
+    if (!user || !auctionId) return;
 
-    const stompClient = connectStomp(token);
+    // 쿠키 기반 인증으로 변경 (토큰 전달하지 않음)
+    const stompClient = connectStomp();
     setClient(stompClient);
 
     subscribeToAuction(stompClient, auctionId, (msg) => {
@@ -69,17 +69,17 @@ export default function AuctionPage() {
 
       setMessages((prev) => {
         if (prev.some((m) => m.text === `${msg.currentBid.toLocaleString()}원 입찰!`)) return prev;
-        return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${msg.currentBid.toLocaleString()}원 입찰!`, isMe: msg.nickname === myNickname }];
+        return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${msg.currentBid.toLocaleString()}원 입찰!`, isMe: msg.nickname === user.nickname }];
       });
 
       setAuction((prev: Auction | null) => (prev ? { ...prev, currentBid: msg.currentBid } : prev));
 
       // ✅ 다른 사용자가 입찰하면 다시 활성화
-      if (msg.nickname !== myNickname) setCanBid(true);
+      if (msg.nickname !== user.nickname) setCanBid(true);
     });
 
     return () => disconnectStomp();
-  }, [token, auctionId, myNickname]);
+  }, [user, auctionId]);
 
   // 경매 상세 조회
   useEffect(() => {
@@ -120,8 +120,10 @@ export default function AuctionPage() {
 
   // 입찰
   const handleBid = async (amount: number) => {
-    const userUUID = localStorage.getItem("userUUID") || "";
-    if (!userUUID) return alert("로그인이 필요합니다.");
+    if (!user) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
 
     if (!client || !client.connected) {
       console.error("[AuctionPage] STOMP 연결되지 않음. 메시지 전송 실패.");
@@ -129,15 +131,18 @@ export default function AuctionPage() {
       return;
     }
 
-    console.log("[AuctionPage] 입찰 메시지 전송 시도:", { auctionId, userUUID, amount });
-    sendAuctionMessage("/app/auction/bid", { auctionId, amount }, token);
+    console.log("[AuctionPage] 입찰 메시지 전송 시도:", { auctionId, userUUID: user.userUUID, amount });
+    // 쿠키 기반 인증으로 변경 (토큰 전달하지 않음)
+    sendAuctionMessage("/app/auction/bid", { auctionId, amount });
     setCanBid(false); // ✅ 내가 입찰하면 비활성화
   };
 
   const timeLeftColor = timeLeft !== "경매 종료" && auction && new Date(auction.endTime).getTime() - new Date().getTime() <= 5 * 60 * 1000
     ? "text-red-500" : "text-blue-600";
 
-  if (!auction) return <p>Loading...</p>;
+  if (isLoading) return <p>Loading...</p>;
+  if (!user) return <p>로그인이 필요합니다.</p>;
+  if (!auction) return <p>경매 정보를 불러오는 중...</p>;
 
   return (
     <>

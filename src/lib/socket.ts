@@ -28,14 +28,13 @@ const getWsUrl = () => {
 };
 
 /**
- * 소켓 연결 함수 (토큰 포함)
- * @param token JWT 토큰
+ * 소켓 연결 함수 (쿠키 기반 인증)
  * @returns STOMP Client
  */
-export const connectStomp = (token: string): Client => {
+export const connectStomp = (): Client => {
   stompClient = new Client({
     webSocketFactory: () => {
-      // SockJS 연결, 쿼리 파라미터로 토큰 전달 (핸드쉐이크)
+      // SockJS 연결, 쿠키를 자동으로 전송
       let wsUrl = getWsUrl();
       console.log(`[socket.ts] Original WebSocket URL: ${wsUrl}`);
       
@@ -48,10 +47,10 @@ export const connectStomp = (token: string): Client => {
         console.log(`[socket.ts] Converted WS to HTTP: ${wsUrl}`);
       }
       
-      console.log(`[socket.ts] Creating SockJS connection to: ${wsUrl}?token=${token.substring(0, 20)}...`);
+      console.log(`[socket.ts] Creating SockJS connection to: ${wsUrl}`);
       
-      // SockJS transport 옵션 명시적 설정 (CORS 문제 해결 시도)
-      return new SockJS(`${wsUrl}?token=${token}`, null, {
+      // SockJS transport 옵션 설정 (쿠키 전송 활성화)
+      return new SockJS(wsUrl, null, {
         transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
         debug: false, // 디버그 로그 감소
         devel: false,
@@ -61,13 +60,13 @@ export const connectStomp = (token: string): Client => {
         info: {
           websocket: true,
           origins: ['*:*'],
-          cookie_needed: false,
+          cookie_needed: true, // 쿠키 사용 활성화
           entropy: Math.random()
         }
       });
     },
     connectHeaders: {
-      Authorization: `Bearer ${token}`, // STOMP 연결 시 헤더에 토큰 추가
+      // 쿠키 기반 인증이므로 Authorization 헤더 제거
     },
     debug: (str) => console.log("[STOMP DEBUG]", str),
     reconnectDelay: 3000, // 재연결 주기를 3초로 단축
@@ -138,15 +137,13 @@ export const subscribeToAuction = (
 };
 
 /**
- * 경매 입찰, 채팅 등 메시지 전송 함수 (Body에 토큰 포함)
+ * 경매 입찰, 채팅 등 메시지 전송 함수 (쿠키 기반 인증)
  * @param destination 서버로 보낼 목적지 (ex: "/app/auction/bid")
  * @param message 보낼 메시지 (객체)
- * @param token JWT 토큰 (Body로 포함)
  */
 export const sendAuctionMessage = (
   destination: string,
-  message: any,
-  token: string
+  message: any
 ) => {
   if (!stompClient || !stompClient.connected) {
     console.error("[socket.ts] STOMP 연결 안 됨. 메시지 전송 실패.");
@@ -155,15 +152,10 @@ export const sendAuctionMessage = (
 
   console.log(`[socket.ts] 메시지 전송: ${destination}`, message);
 
-  // 토큰을 body에 포함
-  const messageWithToken = {
-    ...message,
-    token: token, // body 안에 token 필드로 포함
-  };
-
+  // 쿠키 기반 인증이므로 토큰을 body에 포함하지 않음
   stompClient.publish({
     destination: destination, // 예: "/app/auction/bid"
-    body: JSON.stringify(messageWithToken), // JSON 문자열로 변환
+    body: JSON.stringify(message), // JSON 문자열로 변환
     headers: {}, // 헤더 비워둠 (SockJS는 헤더 깨질 수 있음)
   });
 };

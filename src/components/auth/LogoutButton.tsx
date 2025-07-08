@@ -3,38 +3,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { removeAuthData } from "@/lib/api/auth";
-
-import { getApiBaseUrl } from "@/lib/config";
+import { logoutUser, removeAuthData } from "@/lib/api/auth";
+import { useAuth } from "@/app/context/AuthContext";
 
 export const LogoutButton = () => {
   const router = useRouter();
+  const { refreshAuth } = useAuth();
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        alert("로그인 정보가 없습니다.");
-        return;
-      }
+      // 서버에 로그아웃 요청 (쿠키 기반 인증)
+      await logoutUser();
 
-      // 서버에 로그아웃 요청
-      const res = await fetch(`${getApiBaseUrl()}/auth/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // ★ Authorization 헤더로 토큰 전송
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // 클라이언트 사이드 인증 정보 정리
+      removeAuthData();
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "로그아웃 요청 실패");
-      }
+      // 인증 상태 새로고침
+      await refreshAuth();
 
-      // 인증 정보 삭제
-      removeAuthData(); // 내부에서 localStorage.removeItem("accessToken") 등 수행
+      // 로그인 상태 변경 이벤트 발생
+      window.dispatchEvent(new Event('login-status-change'));
 
       alert("로그아웃 되었습니다.");
       router.push("/");

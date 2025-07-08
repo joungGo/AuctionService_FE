@@ -16,75 +16,57 @@ export default function AdminAuctionCreatePage() {
   const [endTime, setEndTime] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async () => {
-    // 숫자 변환
-    const startPriceNumber = Number(startPrice);
-    const minBidNumber = Number(minBid);
-    const token = localStorage.getItem('accessToken');
-  
-    // 📌 [로그 1] 입력값 확인
-    console.log("📌 [경매 등록 요청 데이터 확인]:", {
-      productName,
-      startPrice: startPriceNumber,
-      minBid: minBidNumber,
-      startTime,
-      endTime,
-      imageUrl,
-      description,
-    });
-  
-    // 📌 [로그 2] 토큰 확인
-    console.log("📌 [전송할 토큰]:", token);
-  
-    if (!token) {
-      alert("로그인이 필요합니다.");
-      return;
-    }
-  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage("");
+
     try {
-      const response = await fetch(`${getApiBaseUrl()}/admin/auctions`, {
+      const API_BASE_URL = getApiBaseUrl();
+      
+      console.log("📌 [API 요청 URL]:", `${API_BASE_URL}/admin/auctions`);
+
+      const response = await fetch(`${API_BASE_URL}/admin/auctions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
         },
+        credentials: 'include', // 쿠키 기반 인증
         body: JSON.stringify({
           productName,
-          startPrice: startPriceNumber,
-          minBid: minBidNumber,
+          startPrice: Number(startPrice),
+          minBid: Number(minBid),
           startTime,
           endTime,
           imageUrl,
           description,
         }),
       });
-  
-      // 📌 [로그 3] 응답 상태 코드 확인
-      console.log("📌 [응답 상태]:", response.status);
-  
-      const data = await response.json();
-  
-      // 📌 [로그 4] 서버 응답 데이터 확인
-      console.log("📌 [서버 응답 데이터]:", data);
-  
-      if (response.ok) {
-        alert("경매가 성공적으로 등록되었습니다!");
-        // 초기화
-        setProductName("");
-        setStartPrice("");
-        setMinBid("");
-        setStartTime("");
-        setEndTime("");
-        setImageUrl("");
-        setDescription("");
-      } else {
-        alert(`경매 등록 실패: ${data.msg}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "경매 등록 실패");
       }
+
+      const data = await response.json();
+      setMessage("✅ 경매가 성공적으로 등록되었습니다!");
+      
+      // 폼 초기화
+      setProductName("");
+      setStartPrice("");
+      setMinBid("");
+      setStartTime("");
+      setEndTime("");
+      setImageUrl("");
+      setDescription("");
     } catch (error) {
-      // 📌 [로그 5] 에러 로그
-      console.error("❌ [경매 등록 중 에러 발생]:", error);
-      alert("경매 등록 중 에러가 발생했습니다.");
+      console.error("❌ 경매 등록 실패:", error);
+      setMessage("❌ 경매 등록 실패: " + (error as Error).message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -156,6 +138,12 @@ export default function AdminAuctionCreatePage() {
           <Button onClick={handleSubmit}>경매 등록하기</Button>
         </CardContent>
       </Card>
+
+      {message && (
+        <div className={`mt-4 p-3 rounded-md ${message.includes("✅") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
