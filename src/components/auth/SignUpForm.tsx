@@ -206,14 +206,14 @@ export const SignUpForm = () => {
           {/* Name (Optional) */}
           <div className="space-y-2">
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              이름 (선택 사항)
+              닉네임
             </label>
             <Input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="이름 입력"
+              placeholder="닉네임 입력"
               className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
