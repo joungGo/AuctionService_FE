@@ -5,12 +5,13 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { signupUser } from "@/lib/api/auth";
-
 import { getApiBaseUrl } from "@/lib/config";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export const SignUpForm = () => {
   const [email, setEmail] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [inputCode, setInputCode] = useState("");
@@ -77,6 +78,7 @@ export const SignUpForm = () => {
       }
     }
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -91,7 +93,8 @@ export const SignUpForm = () => {
     }
 
     try {
-      const message = await signupUser(email, password, nickname);
+      // 기존 API는 nickname을 사용하므로 name을 nickname으로 전달
+      const message = await signupUser(email, password, name || "사용자");
       alert(`${message}`);
       router.push("/auth/login");
     } catch (err: any) {
@@ -100,101 +103,138 @@ export const SignUpForm = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-      <div className="bg-white shadow-xl rounded-xl p-8 max-w-md w-full text-center">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-6">회원가입</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative">
-            <input
-              type="email"
-              placeholder="이메일"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 pr-20 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
-              required
-            />
-            <button
-              type="button"
-              onClick={handleEmailVerification}
-              className="absolute right-2 top-1/2 -translate-y-1/2 py-1 px-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
-            >
-              인증
-            </button>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-2 pb-32">
+      <div className="max-w-md w-full space-y-8">
+        {/* Title */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-8">계정 만들기</h1>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email with Verification Button */}
+          <div className="space-y-2">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              이메일 주소
+            </label>
+            <div className="relative">
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="이메일 주소 입력"
+                className="w-full h-14 px-4 pr-20 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+              <button
+                type="button"
+                onClick={handleEmailVerification}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-gray-200 text-gray-800 text-sm font-bold rounded-full hover:bg-gray-300 transition-colors"
+              >
+                인증
+              </button>
+            </div>
           </div>
 
+          {/* Email Verification Code */}
           {showVerificationInput && (
-            <>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="인증 코드 입력"
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value)}
-                  disabled={isBlocked || isVerified}
-                  className={`w-full p-3 pr-20 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                    isBlocked || isVerified ? "bg-gray-200" : ""
-                  }`}
-                />
+            <div className="space-y-2">
+              <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+                이메일 인증 코드
+              </label>
+              <Input
+                id="code"
+                type="text"
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+                placeholder="인증 코드 입력"
+                disabled={isBlocked || isVerified}
+                className={`w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  isBlocked || isVerified ? "bg-gray-200 cursor-not-allowed" : ""
+                }`}
+              />
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-500">
+                  {`남은 시간: ${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, "0")}`}
+                </p>
                 <button
                   type="button"
                   onClick={handleCodeVerification}
                   disabled={isBlocked || isVerified}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 py-1 px-3 bg-green-500 text-white rounded-md hover:bg-green-600 transition"
+                  className="px-4 py-2 bg-blue-500 text-white text-sm font-bold rounded-full hover:bg-blue-600 transition-colors disabled:bg-gray-400"
                 >
                   {isVerified ? "완료" : "확인"}
                 </button>
               </div>
-              <p className="text-sm text-gray-500 mt-2">{`남은 시간: ${Math.floor(
-                timer / 60
-              )}:${(timer % 60).toString().padStart(2, "0")}`}</p>
-            </>
+            </div>
           )}
 
-          <input
-            type="text"
-            placeholder="닉네임"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            required
-          />
+          {/* Password */}
+          <div className="space-y-2">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              비밀번호
+            </label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호 입력"
+              className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            required
-          />
+          {/* Confirm Password */}
+          <div className="space-y-2">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              비밀번호 확인
+            </label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="비밀번호 확인"
+              className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="비밀번호 확인"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            required
-          />
+          {/* Name (Optional) */}
+          <div className="space-y-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              닉네임
+            </label>
+            <Input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="닉네임 입력"
+              className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-          {error && <p className="text-red-500 text-sm text-left">{error}</p>}
+          {error && (
+            <div className="text-red-600 text-sm text-center">{error}</div>
+          )}
 
-          <button
+          {/* Submit Button */}
+          <Button
             type="submit"
-            className="w-full py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+            className="w-full h-10 bg-blue-200 hover:bg-blue-300 text-gray-800 font-bold rounded-full transition-colors"
           >
-            회원가입
-          </button>
+            가입하기
+          </Button>
 
-          <p className="text-sm text-gray-500">
-            이미 회원이신가요?{" "}
-            <span
-              onClick={() => router.push("/auth/login")}
-              className="text-blue-500 hover:underline cursor-pointer"
-            >
-              로그인
-            </span>
-          </p>
+          {/* Terms */}
+          <div className="text-center">
+            <p className="text-sm text-gray-500">
+              가입하면 서비스 약관 및 개인정보 처리방침에 동의하는 것으로 간주합니다.
+            </p>
+          </div>
         </form>
       </div>
     </div>
