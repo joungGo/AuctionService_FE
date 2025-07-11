@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 export const SignUpForm = () => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [inputCode, setInputCode] = useState("");
@@ -214,21 +213,6 @@ export const SignUpForm = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="닉네임 입력"
-              className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* Phone Number (Optional) */}
-          <div className="space-y-2">
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
-              전화번호 (선택 사항)
-            </label>
-            <Input
-              id="phoneNumber"
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="전화번호 입력"
               className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
