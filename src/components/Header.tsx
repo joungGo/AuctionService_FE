@@ -12,11 +12,12 @@ export function Header() {
   if (isLoading) {
     return (
       <header className="w-full bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
+            {/* Left Navigation - 완전히 왼쪽 정렬 */}
             <div className="flex items-center space-x-8">
               <Link href="/" className="text-xl font-bold text-gray-900">
-                경매내우
+                GlobalBid
               </Link>
               <nav className="hidden md:flex space-x-8">
                 <Link href="/" className="text-gray-600 hover:text-gray-900">
@@ -30,11 +31,12 @@ export function Header() {
                 </Link>
                 <Link href="/wishlist" className="text-gray-600 hover:text-gray-900">
                   관심 목록
-          </Link>
+                </Link>
               </nav>
             </div>
+            {/* Right Navigation - 완전히 오른쪽 정렬 */}
             <div className="flex items-center space-x-4">
-            {/* 로딩 중 */}
+              {/* 로딩 중 */}
             </div>
           </div>
         </div>
@@ -44,12 +46,12 @@ export function Header() {
 
   return (
     <header className="w-full bg-white border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left Navigation */}
+          {/* Left Navigation - 완전히 왼쪽 정렬 */}
           <div className="flex items-center space-x-8">
             <Link href="/" className="text-xl font-bold text-gray-900">
-              경매내우
+              GlobalBid
             </Link>
             <nav className="hidden md:flex space-x-8">
               <Link href="/" className="text-gray-600 hover:text-gray-900">
@@ -63,11 +65,11 @@ export function Header() {
               </Link>
               <Link href="/wishlist" className="text-gray-600 hover:text-gray-900">
                 관심 목록
-        </Link>
+              </Link>
             </nav>
           </div>
 
-          {/* Right Navigation */}
+          {/* Right Navigation - 완전히 오른쪽 정렬 */}
           <div className="flex items-center space-x-4">
             {/* Search Bar */}
             <div className="hidden md:block">
@@ -86,31 +88,31 @@ export function Header() {
             </div>
 
             {/* Auth Navigation */}
-          {!user ? (
-            <>
-              <Link href="/auth/login">
+            {!user ? (
+              <>
+                <Link href="/auth/login">
                   <Button variant="ghost" className="text-gray-600 hover:text-gray-900">로그인</Button>
-              </Link>
-              <Link href="/auth/register">
+                </Link>
+                <Link href="/auth/register">
                   <Button className="bg-blue-500 hover:bg-blue-600 text-white">회원가입</Button>
-              </Link>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-gray-600">
-                안녕하세요, {user.nickname}님
-              </span>
-              <Link href="/mypage">
+                </Link>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-gray-600">
+                  안녕하세요, {user.nickname}님
+                </span>
+                <Link href="/mypage">
                   <Button variant="outline" className="text-gray-600 hover:text-gray-900">마이페이지</Button>
-              </Link>
-              <LogoutButton />
+                </Link>
+                <LogoutButton />
                 
                 {/* Profile Icon */}
                 <button className="p-2 text-gray-400 hover:text-gray-600">
                   <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
                 </button>
-            </>
-          )}
+              </>
+            )}
           </div>
         </div>
       </div>
