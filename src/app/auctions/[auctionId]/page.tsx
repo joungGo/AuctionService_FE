@@ -68,8 +68,9 @@ export default function AuctionPage() {
       }
 
       setMessages((prev) => {
-        if (prev.some((m) => m.text === `${msg.currentBid.toLocaleString()}원 입찰!`)) return prev;
-        return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${msg.currentBid.toLocaleString()}원 입찰!`, isMe: msg.nickname === user.nickname }];
+        const bidAmount = msg.currentBid || 0; // null 체크 추가
+        if (prev.some((m) => m.text === `${bidAmount.toLocaleString()}원 입찰!`)) return prev;
+        return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${bidAmount.toLocaleString()}원 입찰!`, isMe: msg.nickname === user.nickname }];
       });
 
       setAuction((prev: Auction | null) => (prev ? { ...prev, currentBid: msg.currentBid } : prev));
@@ -151,7 +152,7 @@ export default function AuctionPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>🏆 경매 종료 🏆</DialogTitle></DialogHeader>
             <p>낙찰자: {auctionEndData.winnerNickname}</p>
-            <p>낙찰 금액: {auctionEndData.winningBid.toLocaleString()}원</p>
+            <p>낙찰 금액: {(auctionEndData.winningBid || 0).toLocaleString()}원</p>
             <DialogFooter><Button onClick={() => router.push("/")}>메인으로 이동</Button></DialogFooter>
           </DialogContent>
         </Dialog>
@@ -161,15 +162,20 @@ export default function AuctionPage() {
           <h1 className="text-2xl font-bold">{auction.product?.name}</h1>
           <img src={auction.product?.imageUrl || "/default-image.jpg"} alt="product" className="w-full h-80 object-cover rounded" />
           <p className="text-gray-700">{auction.product?.description}</p>
-          <p className="text-lg">시작가: {auction.startPrice.toLocaleString()}원</p>
-          <p className="text-xl font-bold">현재가: <span className="text-3xl text-green-600">{auction.currentBid.toLocaleString()}원</span></p>
+          <p className="text-lg">시작가: {(auction.startPrice || 0).toLocaleString()}원</p>
+          <p className="text-xl font-bold">현재가: <span className="text-3xl text-green-600">{(auction.currentBid || auction.startPrice || 0).toLocaleString()}원</span></p>
           <p className={`font-semibold ${timeLeftColor}`}>{timeLeft}</p>
         </div>
         <div className="md:w-1/3 w-full p-4 flex flex-col gap-4">
           <div ref={chatContainerRef} className="border rounded-lg bg-gray-100 p-3 overflow-y-auto flex-1 min-h-0">
             <AuctionChat messages={messages} />
           </div>
-          <AuctionForm highestBid={auction.currentBid} minBid={auction.minBid} onBid={handleBid} canBid={canBid} />
+          <AuctionForm 
+            highestBid={auction.currentBid || auction.startPrice || 0} 
+            minBid={auction.minBid || 0} 
+            onBid={handleBid} 
+            canBid={canBid} 
+          />
         </div>
       </div>
     </>

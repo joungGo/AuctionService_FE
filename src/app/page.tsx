@@ -4,16 +4,10 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import dayjs from "dayjs";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { getApiBaseUrl } from "@/lib/config";
+
+// 히어로 섹션 배경 이미지만 유지 (UI 디자인 요소)
+const imgHeroBackground = "http://localhost:3845/assets/c5a45c49b9693bc77cdfcadb467fef26dcfb67f1.png";
 
 export default function AuctionPage() {
   const [auctions, setAuctions] = useState<any[]>([]);
@@ -22,7 +16,7 @@ export default function AuctionPage() {
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState<{ [key: number]: string }>({});
 
-  // ✅ 경매 데이터 불러오기 (초기 로딩용)
+  // ✅ 경매 데이터 불러오기 (초기 로딩용) - 기존 로직 그대로 유지
   const fetchAuctions = async (isInitialLoad = false) => {
     if (isInitialLoad) {
       setLoading(true);
@@ -31,7 +25,6 @@ export default function AuctionPage() {
     }
     setError("");
     try {
-      // config.ts의 getApiBaseUrl()를 사용하여 환경에 맞는 API URL 사용
       const apiBaseUrl = getApiBaseUrl();
       const fullUrl = `${apiBaseUrl}/auctions`;
       console.log('[page.tsx] Fetching auctions from:', fullUrl);
@@ -55,19 +48,17 @@ export default function AuctionPage() {
     }
   };
 
-  // ✅ 최초 호출 및 주기적 갱신
+  // ✅ 최초 호출 및 주기적 갱신 - 기존 로직 그대로 유지
   useEffect(() => {
-    fetchAuctions(true); // 최초 호출 (로딩 표시)
-
+    fetchAuctions(true);
     const interval = setInterval(() => {
       console.log("🔄 메인 페이지 경매 목록 갱신 중...");
-      fetchAuctions(false); // 주기적 갱신 (로딩 표시 안함)
-    }, 5000); // 5초마다
-
-    return () => clearInterval(interval); // 언마운트 시 해제
+      fetchAuctions(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  // ✅ 남은 시간 계산
+  // ✅ 남은 시간 계산 - 기존 로직 그대로 유지
   useEffect(() => {
     const interval = setInterval(() => {
       const updatedTimes: { [key: number]: string } = {};
@@ -105,67 +96,170 @@ export default function AuctionPage() {
     return () => clearInterval(interval);
   }, [auctions]);
 
-  // 필터링
+  // 필터링 - 기존 로직 그대로 유지
   const now = dayjs();
   const ongoingAuctions = auctions.filter(
     (a) => now.isAfter(dayjs(a.startTime)) && now.isBefore(dayjs(a.endTime))
   );
   const upcomingAuctions = auctions.filter((a) => now.isBefore(dayjs(a.startTime)));
 
+  // 인기 상품 로직 - 현재 입찰가 기준으로 정렬
+  const popularAuctions = auctions
+    .filter(auction => auction.currentBidAmount || auction.startingBid) // 입찰가가 있는 경매만
+    .sort((a, b) => {
+      // 현재 입찰가 기준 내림차순 정렬 (높은 가격순)
+      const priceA = a.currentBidAmount || a.startingBid || 0;
+      const priceB = b.currentBidAmount || b.startingBid || 0;
+      return priceB - priceA;
+    })
+    .slice(0, 3); // 상위 3개 선택
+
+  // 히어로 섹션 스크롤 함수
+  const scrollToAuctions = () => {
+    const element = document.getElementById('auctions-section');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="p-8 space-y-8">
-      {loading && <p className="text-gray-600">불러오는 중...</p>}
+    <div className="bg-neutral-50 min-h-[800px] w-full">
+      {/* 로딩 및 에러 상태 - 기존 로직 유지 */}
+      {loading && (
+        <div className="flex justify-center items-center h-64">
+          <p className="text-gray-600">불러오는 중...</p>
+        </div>
+      )}
       {refreshing && (
         <div className="fixed top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm z-50">
           🔄 갱신 중...
         </div>
       )}
-      {error && <p className="text-red-500">{error}</p>}
+      {error && (
+        <div className="flex justify-center items-center h-64">
+          <p className="text-red-500">{error}</p>
+        </div>
+      )}
 
-      <AuctionSection
-        title="진행 중인 경매"
-        auctions={ongoingAuctions}
-        timeLeft={timeLeft}
-      />
-      <AuctionSection
-        title="예정된 경매"
-        auctions={upcomingAuctions}
-        timeLeft={timeLeft}
-      />
+      {/* 메인 컨텐츠 */}
+      <div className="flex flex-row justify-center w-full">
+        <div className="flex flex-col items-start justify-start w-full max-w-[960px] px-4 lg:px-40 py-5">
+          
+          {/* 히어로 섹션 */}
+          <div className="w-full p-4">
+            <div 
+              className="h-[480px] w-full rounded-xl relative bg-cover bg-center"
+              style={{
+                backgroundImage: `linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.4) 100%), url('${imgHeroBackground}')`,
+              }}
+            >
+              <div className="absolute left-[216px] top-[369px] flex flex-col gap-2">
+                <div className="w-[618px]">
+                  <h1 className="font-black text-[48px] leading-[60px] text-white tracking-[-2px]">
+                    특별한 상품을 만나보세요
+                  </h1>
+                </div>
+                <div>
+                  <p className="font-normal text-[16px] leading-[24px] text-white">
+                    실시간 경매에서 희귀하고 특별한 상품에 입찰하세요. 오늘 당신의 보물을 찾아보세요.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={scrollToAuctions}
+                className="absolute left-[216px] top-[493px] bg-[#dbe8f2] hover:bg-[#c5d7e8] transition-colors duration-200 rounded-xl px-5 py-3 h-12 min-w-[84px] max-w-[480px]"
+              >
+                <span className="font-bold text-[16px] leading-[24px] text-[#0f1417]">
+                  경매 둘러보기
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* 실시간 경매 섹션 */}
+          <div id="auctions-section" className="w-full pt-5 pb-3 px-4">
+            <h2 className="font-bold text-[22px] leading-[28px] text-[#0f1417]">
+              실시간 경매
+            </h2>
+          </div>
+          
+          <div className="w-full px-4">
+            <div className="flex flex-row gap-3 overflow-x-auto">
+              {ongoingAuctions.length > 0 ? (
+                ongoingAuctions.map((auction) => (
+                  <AuctionCard
+                    key={auction.auctionId}
+                    auction={auction}
+                    timeLeft={timeLeft[auction.auctionId]}
+                    isOngoing={true}
+                  />
+                ))
+              ) : (
+                <div className="flex-1 flex justify-center items-center h-48">
+                  <p className="text-gray-500">진행 중인 경매가 없습니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 예정된 경매 섹션 */}
+          <div className="w-full pt-5 pb-3 px-4">
+            <h2 className="font-bold text-[22px] leading-[28px] text-[#0f1417]">
+              예정된 경매
+            </h2>
+          </div>
+          
+          <div className="w-full px-4">
+            <div className="flex flex-row gap-3 overflow-x-auto">
+              {upcomingAuctions.length > 0 ? (
+                upcomingAuctions.map((auction) => (
+                  <AuctionCard
+                    key={auction.auctionId}
+                    auction={auction}
+                    timeLeft={timeLeft[auction.auctionId]}
+                    isOngoing={false}
+                  />
+                ))
+              ) : (
+                <div className="flex-1 flex justify-center items-center h-48">
+                  <p className="text-gray-500">예정된 경매가 없습니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 인기 상품 섹션 */}
+          <div className="w-full pt-5 pb-3 px-4">
+            <h2 className="font-bold text-[22px] leading-[28px] text-[#0f1417]">
+              인기 상품
+            </h2>
+          </div>
+          
+          <div className="w-full px-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-row gap-3 overflow-x-auto">
+                {popularAuctions.length > 0 ? (
+                  popularAuctions.map((auction) => (
+                    <PopularCard
+                      key={auction.auctionId}
+                      auction={auction}
+                    />
+                  ))
+                ) : (
+                  <div className="flex-1 flex justify-center items-center h-48">
+                    <p className="text-gray-500">인기 상품이 없습니다.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ✅ 경매 리스트 섹션
-const AuctionSection = ({
-  title,
-  auctions,
-  timeLeft,
-}: {
-  title: string;
-  auctions: any[];
-  timeLeft: { [key: number]: string };
-}) => (
-  <div>
-    <h2 className="text-2xl font-bold mb-4">{title}</h2>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {auctions.length > 0 ? (
-        auctions.map((auction) => (
-          <AuctionCard
-            key={auction.auctionId}
-            auction={auction}
-            timeLeft={timeLeft[auction.auctionId]}
-            isOngoing={dayjs().isAfter(dayjs(auction.startTime))}
-          />
-        ))
-      ) : (
-        <p className="text-gray-500">표시할 경매가 없습니다.</p>
-      )}
-    </div>
-  </div>
-);
-
-// ✅ 경매 카드
+// 경매 카드 컴포넌트 (실제 데이터만 사용)
 const AuctionCard = ({
   auction,
   timeLeft,
@@ -174,77 +268,125 @@ const AuctionCard = ({
   auction: any;
   timeLeft: string;
   isOngoing: boolean;
-}) => (
-  <Card className="relative h-full flex flex-col justify-between">
-    <CardHeader>
-      <div className="flex justify-between items-center">
-        <CardTitle>{auction.productName}</CardTitle>
-        {isOngoing ? (
-          <Badge variant="destructive">LIVE</Badge>
-        ) : (
-          <Badge className="bg-yellow-400 text-white">예정</Badge>
-        )}
-      </div>
-    </CardHeader>
-
-    <CardContent>
-      {auction.imageUrl && (
-        <div className="w-full h-48 relative rounded overflow-hidden mb-4">
-          <Image
-            src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
-            alt={auction.productName}
-            fill
-            style={{ objectFit: "cover" }}
-          />
+}) => {
+  // 예정된 경매는 클릭 불가능하게 처리
+  const cardContent = (
+    <div className={`min-w-60 w-60 rounded-lg transition-shadow ${
+      isOngoing 
+        ? 'cursor-pointer hover:shadow-lg' 
+        : 'cursor-default'
+    }`}>
+      <div className="flex flex-col gap-4 p-0">
+        {/* 이미지 영역 - 항상 동일한 크기 유지 */}
+        <div className="h-[135px] w-full rounded-xl bg-gray-200 overflow-hidden flex items-center justify-center relative">
+          {auction.imageUrl && auction.imageUrl.trim() ? (
+            <Image
+              src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
+              alt={auction.productName}
+              width={240}
+              height={135}
+              className="w-full h-full object-cover"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-gray-400 w-full h-full">
+              <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+              </svg>
+              <span className="text-xs">이미지 없음</span>
+            </div>
+          )}
+          {/* 예정된 경매에는 이미지 위에 오버레이로 "시작 전" 표시 */}
+          {!isOngoing && (
+            <div className="absolute top-2 right-2 z-10">
+              <span className="inline-block px-2 py-1 text-xs bg-yellow-500 text-white rounded-full font-medium shadow-sm">
+                시작 전
+              </span>
+            </div>
+          )}
+          {/* 실시간 경매에는 이미지 위에 오버레이로 "진행중" 표시 */}
+          {isOngoing && (
+            <div className="absolute top-2 right-2 z-10">
+              <span className="inline-block px-2 py-1 text-xs bg-red-500 text-white rounded-full font-medium shadow-sm">
+                진행중
+              </span>
+            </div>
+          )}
         </div>
-      )}
+        <div className="flex flex-col gap-1">
+          <div>
+            <h3 className="font-medium text-[16px] leading-[24px] text-[#0f1417]">
+              {auction.productName}
+            </h3>
+          </div>
+          <div>
+            <p className="font-normal text-[14px] leading-[21px] text-[#5c738a]">
+              {isOngoing ? (
+                timeLeft ? `남은 시간: ${timeLeft}` : '시간 계산 중...'
+              ) : (
+                `시작 예정: ${dayjs(auction.startTime).format('MM월 DD일')}`
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
-      <p className={`mt-2 ${isOngoing ? "text-red-600 font-bold" : "text-gray-600"}`}>
-        {/* ✅ 현재 입찰가 없으면 시작가 대체 표시 */}
-        현재가:{" "}
-        {auction.currentBid !== undefined && auction.currentBid > 0
-          ? `${auction.currentBid.toLocaleString()}원`
-          : `${auction.startPrice?.toLocaleString()}원`}
-      </p>
+  // 진행 중인 경매만 클릭 가능
+  if (isOngoing) {
+    return (
+      <Link href={`/auctions/${auction.auctionId}`}>
+        {cardContent}
+      </Link>
+    );
+  }
 
-      <p className="text-gray-500 text-sm mt-2">
-        {isOngoing ? "남은 시간" : "시작까지 남은 시간"}:{" "}
-        <span
-          className={`font-semibold ${
-            checkDangerTime(timeLeft) ? "text-red-600" : "text-blue-600"
-          }`}
-        >
-          {timeLeft ?? (isOngoing ? "종료됨" : "곧 시작")}
-        </span>
-      </p>
-
-      <p className="text-sm text-gray-400 mt-2">
-        접속자 수: {Math.floor(Math.random() * 20) + 1}명
-      </p>
-    </CardContent>
-
-    <CardFooter>
-      {isOngoing ? (
-        <Link href={`/auctions/${auction.auctionId}`} className="w-full">
-          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-            경매 참여하기
-          </Button>
-        </Link>
-      ) : (
-        <Button disabled className="w-full">
-          경매 대기 중
-        </Button>
-      )}
-    </CardFooter>
-  </Card>
-);
-
-// ✅ 남은 시간 위험 여부 체크
-const checkDangerTime = (timeStr: string | undefined): boolean => {
-  if (!timeStr) return false;
-  if (timeStr.includes("일")) return false;
-  const timeParts = timeStr.match(/(\d+)시간 (\d+)분 (\d+)초/);
-  if (!timeParts) return false;
-  const [_, hours, minutes, seconds] = timeParts.map(Number);
-  return hours * 3600 + minutes * 60 + seconds <= 300;
+  // 예정된 경매는 클릭 불가능
+  return cardContent;
 };
+
+// 인기 상품 카드 컴포넌트 (실제 데이터만 사용)
+const PopularCard = ({
+  auction,
+}: {
+  auction: any;
+}) => (
+  <Link href={`/auctions/${auction.auctionId}`}>
+    <div className="h-full w-[301px] cursor-pointer hover:shadow-lg transition-shadow">
+      <div className="flex flex-col gap-3 pb-3">
+        {/* 이미지 영역 - 항상 표시 */}
+        <div className="h-[169px] w-full rounded-xl bg-gray-200 overflow-hidden flex items-center justify-center">
+          {auction.imageUrl && auction.imageUrl.trim() ? (
+            <Image
+              src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
+              alt={auction.productName}
+              width={301}
+              height={169}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-gray-400">
+              <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm">이미지 없음</span>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <div>
+            <h3 className="font-medium text-[16px] leading-[24px] text-[#0f1417]">
+              {auction.productName}
+            </h3>
+          </div>
+          <div>
+            <p className="font-normal text-[14px] leading-[21px] text-[#5c738a]">
+              현재 입찰가: {auction.currentBidAmount ? `${auction.currentBidAmount.toLocaleString()}원` : `${auction.startingBid?.toLocaleString() || 0}원`}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Link>
+);
