@@ -56,3 +56,6 @@ temp/
 # Package manager lock files (선택사항)
 # package-lock.json
 # yarn.lock
+
+# Figma MCP
+cursor-talk-to-figma-mcp/
