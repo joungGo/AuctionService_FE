@@ -1,9 +1,9 @@
-// src/app/auth/register/page.tsx
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SignUpForm } from "@/components/auth/SignUpForm";
-export default function Register() {
-  return (
-    <div>
-      <SignUpForm />
-    </div>
-  );
+
+export default function RegisterPage() {
+  return <SignUpForm />;
 }
