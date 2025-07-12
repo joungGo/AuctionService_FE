@@ -23,7 +23,18 @@ import { useAuth } from "@/app/context/AuthContext";
 
 interface Message { id: number; sender: string; text: string; isMe: boolean; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
-interface Auction { product: { name: string; imageUrl: string; description: string; }; startPrice: number; currentBid: number; minBid: number; endTime: string; }
+// 실제 API 응답 구조에 맞게 수정
+interface Auction { 
+  auctionId: number;
+  productName: string; 
+  imageUrl: string; 
+  description: string; 
+  startPrice: number; 
+  currentBid: number; 
+  minBid: number; 
+  endTime: string;
+  startTime: string;
+}
 
 export default function BidPage() {
   const { auctionId } = useParams() as { auctionId: string };
@@ -232,7 +243,7 @@ export default function BidPage() {
                               /
                             </span>
                             <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">
-                              {auction.product?.name}
+                              {auction.productName || auction.name || "경매 상품"}
                             </span>
                           </div>
                         </div>
@@ -243,7 +254,7 @@ export default function BidPage() {
                         <div className="relative size-full">
                           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
                             <h1 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[22px] leading-[28px] w-full">
-                              {auction.product?.name}
+                              {auction.productName || auction.name || "경매 상품"}
                             </h1>
                           </div>
                         </div>
@@ -256,11 +267,20 @@ export default function BidPage() {
                             <div className="basis-0 bg-neutral-50 grow min-h-px min-w-px relative rounded-xl shrink-0">
                               <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row gap-2 items-start justify-start overflow-clip p-0 relative w-full">
                                 <div className="basis-0 bg-center bg-cover bg-no-repeat grow h-[619px] min-h-px min-w-px relative shrink-0">
-                                  <img
-                                    src={auction.product?.imageUrl || "/images/no-image.svg"}
-                                    alt={auction.product?.name || "경매 상품"}
-                                    className="w-full h-[619px] object-cover rounded-lg"
-                                  />
+                                  {auction.imageUrl && auction.imageUrl.trim() ? (
+                                    <img
+                                      src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
+                                      alt={auction.productName || "경매 상품"}
+                                      className="w-full h-[619px] object-cover rounded-lg"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-[619px] bg-gray-200 rounded-lg flex flex-col items-center justify-center text-gray-400">
+                                      <svg className="w-20 h-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                                      </svg>
+                                      <span className="text-lg">이미지 없음</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -269,12 +289,12 @@ export default function BidPage() {
                       </div>
 
                       {/* 설명 */}
-                      {auction.product?.description && (
+                      {auction.description && (
                         <div className="relative shrink-0 w-full">
                           <div className="relative size-full">
                             <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-1 px-4 relative w-full">
                               <p className="font-['Work_Sans:Regular','Noto_Sans_KR:Regular',sans-serif] font-normal text-[#0f1417] text-[16px] leading-[24px] w-full">
-                                {auction.product.description}
+                                {auction.description || "상품 설명이 없습니다."}
                               </p>
                             </div>
                           </div>

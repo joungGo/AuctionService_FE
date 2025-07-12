@@ -34,40 +34,40 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error }) => {
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 이메일 주소
-              </label>
+            </label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
+              required
+            />
+          </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                비밀번호
-              </label>
+              비밀번호
+            </label>
               <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
+              required
+            />
+          </div>
 
             {error && (
               <div className="text-red-600 text-sm text-center">{error}</div>
             )}
 
             <Button
-              type="submit"
+            type="submit"
               className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-            >
-              로그인
+          >
+            로그인
             </Button>
 
             <div className="text-center">
@@ -76,13 +76,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, error }) => {
                 <Link 
                   href="/auth/register" 
                   className="text-blue-500 hover:text-blue-600 font-medium"
-                >
+            >
                   지금 가입하세요
                 </Link>
-              </p>
+          </p>
             </div>
-          </form>
-        </div>
+        </form>
+      </div>
     </div>
   );
 };

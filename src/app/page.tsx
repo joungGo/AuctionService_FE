@@ -200,7 +200,7 @@ export default function AuctionPage() {
                   auction={auction}
                   timeLeft={timeLeft[auction.auctionId]}
                   isOngoing={true}
-                />
+      />
               ))}
             </SlideContainer>
           ) : (
@@ -223,15 +223,15 @@ export default function AuctionPage() {
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               곧 시작될 경매를 미리 확인해보세요. 관심 있는 상품을 놓치지 마세요.
             </p>
-          </div>
+    </div>
           
           {upcomingAuctions.length > 0 ? (
             <SlideContainer autoSlideInterval={3500} className="px-4">
               {upcomingAuctions.map((auction) => (
-                <AuctionCard
-                  key={auction.auctionId}
-                  auction={auction}
-                  timeLeft={timeLeft[auction.auctionId]}
+          <AuctionCard
+            key={auction.auctionId}
+            auction={auction}
+            timeLeft={timeLeft[auction.auctionId]}
                   isOngoing={false}
                 />
               ))}
@@ -264,18 +264,18 @@ export default function AuctionPage() {
                 <PopularCard
                   key={auction.auctionId}
                   auction={auction}
-                />
+          />
               ))}
             </SlideContainer>
-          ) : (
+      ) : (
             <div className="flex justify-center items-center h-48 bg-white rounded-2xl">
               <p className="text-gray-500 text-lg">인기 상품이 없습니다.</p>
             </div>
-          )}
-        </div>
-      </section>
+      )}
     </div>
-  );
+      </section>
+  </div>
+);
 }
 
 // 경매 카드 컴포넌트 (전체 화면 최적화)
@@ -351,7 +351,7 @@ const AuctionCard = ({
             {auction.productName}
           </h3>
           <p className="text-sm sm:text-base text-gray-600">
-            {isOngoing ? (
+        {isOngoing ? (
               timeLeft ? `⏰ 남은 시간: ${timeLeft}` : '⏰ 시간 계산 중...'
             ) : (
               `📅 시작 예정: ${dayjs(auction.startTime).format('MM월 DD일')}`
@@ -404,9 +404,9 @@ const PopularCard = ({
           {/* 이미지 영역 - 인기 상품용 더 큰 크기 */}
           <div className="h-[240px] sm:h-[260px] w-full bg-gray-200 overflow-hidden flex items-center justify-center relative">
             {auction.imageUrl && auction.imageUrl.trim() ? (
-              <Image
-                src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
-                alt={auction.productName}
+          <Image
+            src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
+            alt={auction.productName}
                 width={450}
                 height={260}
                 className="w-full h-full object-cover"
@@ -417,9 +417,9 @@ const PopularCard = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
                 </svg>
                 <span className="text-base font-medium">이미지 없음</span>
-              </div>
-            )}
-            
+        </div>
+      )}
+
             {/* 인기 상품 배지 */}
             <div className="absolute top-3 left-3 z-10">
               <span className="inline-flex items-center px-3 py-1 text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg">
@@ -427,7 +427,7 @@ const PopularCard = ({
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 인기
-              </span>
+        </span>
             </div>
           </div>
           
@@ -454,6 +454,6 @@ const PopularCard = ({
           </div>
         </div>
       </div>
-    </Link>
+        </Link>
   );
 };

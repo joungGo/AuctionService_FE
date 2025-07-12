@@ -117,23 +117,23 @@ export const SignUpForm = () => {
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               이메일 주소
             </label>
-            <div className="relative">
+          <div className="relative">
               <Input
                 id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
                 placeholder="이메일 주소 입력"
                 className="w-full h-14 px-4 pr-20 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-              <button
-                type="button"
-                onClick={handleEmailVerification}
+              required
+            />
+            <button
+              type="button"
+              onClick={handleEmailVerification}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-gray-200 text-gray-800 text-sm font-bold rounded-full hover:bg-gray-300 transition-colors"
-              >
-                인증
-              </button>
+            >
+              인증
+            </button>
             </div>
           </div>
 
@@ -145,15 +145,15 @@ export const SignUpForm = () => {
               </label>
               <Input
                 id="code"
-                type="text"
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
+                  type="text"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
                 placeholder="인증 코드 입력"
-                disabled={isBlocked || isVerified}
+                  disabled={isBlocked || isVerified}
                 className={`w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   isBlocked || isVerified ? "bg-gray-200 cursor-not-allowed" : ""
-                }`}
-              />
+                  }`}
+                />
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-500">
                   {`남은 시간: ${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, "0")}`}
@@ -177,13 +177,13 @@ export const SignUpForm = () => {
             </label>
             <Input
               id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호 입력"
               className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
+            required
+          />
           </div>
 
           {/* Confirm Password */}
@@ -193,13 +193,13 @@ export const SignUpForm = () => {
             </label>
             <Input
               id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="비밀번호 확인"
               className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
+            required
+          />
           </div>
 
           {/* Name (Optional) */}
@@ -231,7 +231,7 @@ export const SignUpForm = () => {
 
           {/* Terms */}
           <div className="text-center">
-            <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
               가입하면 서비스 약관 및 개인정보 처리방침에 동의하는 것으로 간주합니다.
             </p>
           </div>
