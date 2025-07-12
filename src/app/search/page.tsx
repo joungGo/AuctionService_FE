@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,7 +21,8 @@ interface Auction {
   startingBid?: number;
 }
 
-export default function SearchPage() {
+// 검색 로직을 담은 별도 컴포넌트
+function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -171,203 +172,222 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* 헤더 */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">검색 결과</h1>
-          <p className="text-gray-600">
-            {searchQuery ? `"${searchQuery}"에 대한 검색 결과 표시` : "엔티크에 대한 검색 결과 표시"}
-          </p>
-        </div>
-
-        {/* 필터 영역 */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          {/* 카테고리 필터 */}
-          <div className="relative">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">카테고리: 엔티크</option>
-              <option value="furniture">가구</option>
-              <option value="jewelry">보석류</option>
-              <option value="art">예술품</option>
-              <option value="collectibles">수집품</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
-          {/* 가격 범위 필터 */}
-          <div className="relative">
-            <select
-              value={priceFilter}
-              onChange={(e) => setPriceFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">가격 범위: ₩100,000 - ₩500,000</option>
-              <option value="0-100000">₩0 - ₩100,000</option>
-              <option value="100000-500000">₩100,000 - ₩500,000</option>
-              <option value="500000-1000000">₩500,000 - ₩1,000,000</option>
-              <option value="1000000-9999999">₩1,000,000 이상</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
-          {/* 상태 필터 */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">상태: 종료</option>
-              <option value="live">진행 중</option>
-              <option value="upcoming">예정</option>
-              <option value="ended">종료</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
-          {/* 위치 필터 */}
-          <div className="relative">
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">위치: 전 세계</option>
-              <option value="kr">대한민국</option>
-              <option value="us">미국</option>
-              <option value="eu">유럽</option>
-              <option value="asia">아시아</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* 로딩 상태 */}
-        {loading && (
-          <div className="flex justify-center items-center h-64">
-            <div className="text-lg text-gray-600">검색 중...</div>
-          </div>
-        )}
-
-        {/* 에러 상태 */}
-        {error && (
-          <div className="flex justify-center items-center h-64">
-            <div className="text-lg text-red-600">{error}</div>
-          </div>
-        )}
-
-        {/* 검색 결과 */}
-        {!loading && !error && (
-          <>
-            {currentAuctions.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                  {currentAuctions.map((auction) => (
-                    <SearchResultCard
-                      key={auction.auctionId}
-                      auction={auction}
-                      timeLeft={timeLeft[auction.auctionId]}
-                    />
-                  ))}
-                </div>
-
-                {/* 페이지네이션 */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const page = i + 1;
-                      const isActive = page === currentPage;
-                      
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => handlePageChange(page)}
-                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                            isActive
-                              ? 'bg-blue-500 text-white'
-                              : 'hover:bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                    
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
-                <div className="w-16 h-16 mb-4 bg-gray-200 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  검색 결과가 없습니다
-                </h3>
-                <p className="text-gray-600 text-center">
-                  {searchQuery ? (
-                    <>
-                      "<span className="font-medium">{searchQuery}</span>"에 대한 검색 결과가 없습니다.<br />
-                      다른 검색어를 시도해보세요.
-                    </>
-                  ) : (
-                    "검색어를 입력해주세요."
-                  )}
-                </p>
-                <Link
-                  href="/"
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  전체 경매 보기
-                </Link>
-              </div>
-            )}
-          </>
-        )}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      {/* 헤더 */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">검색 결과</h1>
+        <p className="text-gray-600">
+          {searchQuery ? `"${searchQuery}"에 대한 검색 결과 표시` : "엔티크에 대한 검색 결과 표시"}
+        </p>
       </div>
+
+      {/* 필터 영역 */}
+      <div className="flex flex-wrap gap-4 mb-8">
+        {/* 카테고리 필터 */}
+        <div className="relative">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">카테고리: 엔티크</option>
+            <option value="furniture">가구</option>
+            <option value="jewelry">보석류</option>
+            <option value="art">예술품</option>
+            <option value="collectibles">수집품</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        {/* 가격 범위 필터 */}
+        <div className="relative">
+          <select
+            value={priceFilter}
+            onChange={(e) => setPriceFilter(e.target.value)}
+            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">가격 범위: ₩100,000 - ₩500,000</option>
+            <option value="0-100000">₩0 - ₩100,000</option>
+            <option value="100000-500000">₩100,000 - ₩500,000</option>
+            <option value="500000-1000000">₩500,000 - ₩1,000,000</option>
+            <option value="1000000-9999999">₩1,000,000 이상</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        {/* 상태 필터 */}
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">상태: 종료</option>
+            <option value="live">진행 중</option>
+            <option value="upcoming">예정</option>
+            <option value="ended">종료</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        {/* 위치 필터 */}
+        <div className="relative">
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">위치: 전 세계</option>
+            <option value="kr">대한민국</option>
+            <option value="us">미국</option>
+            <option value="eu">유럽</option>
+            <option value="asia">아시아</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* 로딩 상태 */}
+      {loading && (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-gray-600">검색 중...</div>
+        </div>
+      )}
+
+      {/* 에러 상태 */}
+      {error && (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-red-600">{error}</div>
+        </div>
+      )}
+
+      {/* 검색 결과 */}
+      {!loading && !error && (
+        <>
+          {currentAuctions.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {currentAuctions.map((auction) => (
+                  <SearchResultCard
+                    key={auction.auctionId}
+                    auction={auction}
+                    timeLeft={timeLeft[auction.auctionId]}
+                  />
+                ))}
+              </div>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const page = i + 1;
+                    const isActive = page === currentPage;
+                    
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                          isActive
+                            ? 'bg-blue-500 text-white'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+              <div className="w-16 h-16 mb-4 bg-gray-200 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                검색 결과가 없습니다
+              </h3>
+              <p className="text-gray-600 text-center">
+                {searchQuery ? (
+                  <>
+                    "<span className="font-medium">{searchQuery}</span>"에 대한 검색 결과가 없습니다.<br />
+                    다른 검색어를 시도해보세요.
+                  </>
+                ) : (
+                  "검색어를 입력해주세요."
+                )}
+              </p>
+              <Link
+                href="/"
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                전체 경매 보기
+              </Link>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// 메인 페이지 컴포넌트
+export default function SearchPage() {
+  return (
+    <div className="bg-white min-h-screen">
+      <Suspense fallback={
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">검색 결과</h1>
+            <p className="text-gray-600">검색 결과를 불러오는 중...</p>
+          </div>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-lg text-gray-600">로딩 중...</div>
+          </div>
+        </div>
+      }>
+        <SearchContent />
+      </Suspense>
     </div>
   );
 }
