@@ -23,6 +23,7 @@ const nextConfig = {
       "www.biz-con.co.kr",
       "cdn.gpkorea.com",
       "example.com", // API에서 사용하는 예시 도메인
+      "localhost", // Figma MCP 서버 이미지 허용
     ],
   },
 };

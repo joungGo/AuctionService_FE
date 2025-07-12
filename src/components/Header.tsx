@@ -90,22 +90,36 @@ export function Header() {
           <div className="flex items-center space-x-2 lg:space-x-4">
             {/* Search Bar */}
             <div className="hidden lg:block">
-              <div className="relative">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const query = formData.get("search") as string;
+                if (query.trim()) {
+                  window.location.href = `/search?q=${encodeURIComponent(query.trim())}`;
+                }
+              }} className="relative">
                 <input
+                  name="search"
                   type="text"
-                  placeholder="Search"
+                  placeholder="상품명으로 검색..."
                   className="w-48 xl:w-64 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                <button 
+                  type="submit"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-blue-500 transition-colors"
+                >
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </div>
-              </div>
+                </button>
+              </form>
             </div>
 
             {/* 모바일 검색 버튼 */}
-            <button className="lg:hidden p-2 text-gray-600 hover:text-gray-900">
+            <button 
+              onClick={() => window.location.href = '/search'}
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
+            >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
