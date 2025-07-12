@@ -21,7 +21,7 @@ import { Client } from "@stomp/stompjs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
 
-interface Message { id: number; sender: string; text: string; isMe: boolean; }
+interface Message { id: number; sender: string; text: string; isMe: boolean; timestamp: Date; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
 // 실제 API 응답 구조에 맞게 수정
 interface Auction { 
@@ -90,7 +90,13 @@ export default function BidPage() {
         setMessages((prev) => {
           const bidAmountValue = msg.currentBid || 0;
           if (prev.some((m) => m.text === `${bidAmountValue.toLocaleString()}원 입찰!`)) return prev;
-          return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${bidAmountValue.toLocaleString()}원 입찰!`, isMe: msg.nickname === user.nickname }];
+          return [...prev, { 
+            id: Date.now(), 
+            sender: msg.nickname || "익명", 
+            text: `${bidAmountValue.toLocaleString()}원 입찰!`, 
+            isMe: msg.nickname === user.nickname,
+            timestamp: new Date()
+          }];
         });
 
         setAuction((prev: Auction | null) => {
@@ -137,6 +143,13 @@ export default function BidPage() {
     const interval = setInterval(() => calculateTimeLeft(auction.endTime), 1000);
     return () => clearInterval(interval);
   }, [auction?.endTime]);
+
+  // 새로운 메시지가 추가될 때 자동 스크롤
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = 0; // 최신 메시지가 위에 있으므로 맨 위로 스크롤
+    }
+  }, [messages]);
 
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
@@ -225,11 +238,13 @@ export default function BidPage() {
         <div className="bg-neutral-50 min-h-[800px] relative shrink-0 w-full">
           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start min-h-inherit overflow-clip p-0 relative w-full">
             
-            {/* 메인 컨텐츠 */}
-            <div className="h-[1337px] relative shrink-0 w-full">
+            {/* 메인 컨텐츠 - 2분할 레이아웃 */}
+            <div className="relative shrink-0 w-full min-h-screen">
               <div className="flex flex-row justify-center relative size-full">
-                <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row h-[1337px] items-start justify-center px-40 py-5 relative w-full">
-                  <div className="basis-0 grow max-w-[960px] min-h-px min-w-px relative shrink-0">
+                <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row items-start justify-center px-8 py-5 relative w-full max-w-[1600px]">
+                  
+                  {/* 왼쪽: 기존 UI */}
+                  <div className="basis-0 grow max-w-[700px] min-h-px min-w-px relative shrink-0 pr-4">
                     <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start max-w-inherit overflow-clip p-0 relative w-full">
                       
                       {/* 브레드크럼 */}
@@ -434,8 +449,88 @@ export default function BidPage() {
                         </div>
                       </div>
 
+                                          </div>
+                  </div>
+
+                  {/* 오른쪽: 실시간 입찰 내역 */}
+                  <div className="basis-0 grow max-w-[700px] min-h-px min-w-px relative shrink-0 pl-4">
+                    <div className="bg-white rounded-lg shadow-sm border border-[#e5e8eb] h-full flex flex-col">
+                      
+                      {/* 실시간 입찰 내역 헤더 */}
+                      <div className="p-6 border-b border-[#e5e8eb]">
+                        <h2 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[20px] leading-[25px]">
+                          실시간 입찰 내역
+                        </h2>
+                        <p className="text-[#5c738a] text-[14px] mt-1">
+                          총 {messages.length}건의 입찰
+                        </p>
+                      </div>
+
+                      {/* 실시간 입찰 내역 목록 */}
+                      <div className="flex-1 p-4 min-h-0">
+                        <div 
+                          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                          ref={chatContainerRef}
+                        >
+                          {messages.length > 0 ? (
+                            <div className="space-y-3">
+                              {messages
+                                .slice()
+                                .reverse()
+                                .map((message) => (
+                                  <div
+                                    key={message.id}
+                                    className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-200 ${
+                                      message.isMe
+                                        ? "bg-[#dbe8f2] border-l-4 border-[#0f1417] ml-4"
+                                        : "bg-gray-50 border-l-4 border-[#5c738a] mr-4"
+                                    }`}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-base font-bold ${
+                                          message.isMe ? "text-[#0f1417]" : "text-[#5c738a]"
+                                        }`}>
+                                          {message.isMe ? "나" : message.sender}
+                                        </span>
+                                        <span className="text-xs text-[#5c738a] bg-white px-2 py-1 rounded-full">
+                                          {message.timestamp.toLocaleTimeString([], {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit'
+                                          })}
+                                        </span>
+                                      </div>
+                                      <div className="text-base font-semibold text-[#0f1417]">
+                                        {message.text}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          ) : (
+                            <div className="h-full flex items-center justify-center">
+                              <div className="text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
+                                  </svg>
+                                </div>
+                                <p className="text-[#5c738a] text-base">
+                                  아직 입찰 내역이 없습니다.
+                                </p>
+                                <p className="text-[#5c738a] text-sm mt-1">
+                                  첫 번째 입찰자가 되어보세요!
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                     </div>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -445,4 +540,4 @@ export default function BidPage() {
       </div>
     </>
   );
-} 
+}  
