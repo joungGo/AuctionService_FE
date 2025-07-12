@@ -38,9 +38,21 @@ export default function AuctionPage() {
   const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [canBid, setCanBid] = useState(true); // ✅ 버튼 비활성화 제어
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+
+  // Toast 표시 함수
+  const showToastMessage = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      setToastMessage(null);
+    }, 4000);
+  };
 
   // 로그인 체크
   useEffect(() => {
@@ -67,16 +79,42 @@ export default function AuctionPage() {
         return;
       }
 
-      setMessages((prev) => {
-        const bidAmount = msg.currentBid || 0; // null 체크 추가
-        if (prev.some((m) => m.text === `${bidAmount.toLocaleString()}원 입찰!`)) return prev;
-        return [...prev, { id: Date.now(), sender: msg.nickname || "익명", text: `${bidAmount.toLocaleString()}원 입찰!`, isMe: msg.nickname === user.nickname }];
-      });
+      // 입찰 실패 메시지 처리
+      if (msg.message && msg.message.includes("입찰 실패")) {
+        console.warn("[AuctionPage] 입찰 실패:", msg.message);
+        
+        // Toast 알림으로 사용자에게 구체적인 실패 사유 알림
+        showToastMessage(msg.message);
+        
+        // 이미 최고 입찰자인 경우 입찰 버튼 비활성화 유지
+        if (msg.message.includes("이미 최고 입찰자입니다")) {
+          setCanBid(false);
+        } else {
+          setCanBid(true); // 다른 실패 사유인 경우 다시 활성화
+        }
+        return;
+      }
 
-      setAuction((prev: Auction | null) => (prev ? { ...prev, currentBid: msg.currentBid } : prev));
+      // 입찰 성공 메시지 처리
+      if (msg.message && msg.message.includes("입찰 성공")) {
+        setMessages((prev) => {
+          const bidAmount = msg.currentBid || 0;
+          if (prev.some((m) => m.text === `${bidAmount.toLocaleString()}원 입찰!`)) return prev;
+          return [...prev, { 
+            id: Date.now(), 
+            sender: msg.nickname || "익명", 
+            text: `${bidAmount.toLocaleString()}원 입찰!`, 
+            isMe: msg.nickname === user.nickname 
+          }];
+        });
 
-      // ✅ 다른 사용자가 입찰하면 다시 활성화
-      if (msg.nickname !== user.nickname) setCanBid(true);
+        setAuction((prev: Auction | null) => (prev ? { ...prev, currentBid: msg.currentBid } : prev));
+
+        // 다른 사용자가 입찰하면 다시 활성화, 내가 입찰하면 비활성화 유지
+        if (msg.nickname !== user.nickname) {
+          setCanBid(true);
+        }
+      }
     });
 
     return () => disconnectStomp();
@@ -147,6 +185,13 @@ export default function AuctionPage() {
 
   return (
     <>
+      {/* Toast 알림 */}
+      {showToast && toastMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg">
+          {toastMessage}
+        </div>
+      )}
+
       {auctionEndData && (
         <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
           <DialogContent>
