@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/config";
 import SlideContainer from "@/components/SlideContainer";
+import InfiniteScrollCarousel from "@/components/InfiniteScrollCarousel";
 
 // 히어로 섹션 배경 이미지만 유지 (UI 디자인 요소)
 const imgHeroBackground = "http://localhost:3845/assets/c5a45c49b9693bc77cdfcadb467fef26dcfb67f1.png";
@@ -226,16 +227,16 @@ export default function AuctionPage() {
     </div>
           
           {upcomingAuctions.length > 0 ? (
-            <SlideContainer autoSlideInterval={3500} className="px-4">
+            <InfiniteScrollCarousel speed={48}>
               {upcomingAuctions.map((auction) => (
-          <AuctionCard
-            key={auction.auctionId}
-            auction={auction}
-            timeLeft={timeLeft[auction.auctionId]}
+                <AuctionCard
+                  key={auction.auctionId}
+                  auction={auction}
+                  timeLeft={timeLeft[auction.auctionId]}
                   isOngoing={false}
                 />
               ))}
-            </SlideContainer>
+            </InfiniteScrollCarousel>
           ) : (
             <div className="flex justify-center items-center h-48 bg-white rounded-2xl">
               <p className="text-gray-500 text-lg">예정된 경매가 없습니다.</p>
