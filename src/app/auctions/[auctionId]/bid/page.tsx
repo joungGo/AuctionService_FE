@@ -20,6 +20,7 @@ import {
 import { Client } from "@stomp/stompjs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 
 interface Message { id: number; sender: string; text: string; isMe: boolean; timestamp: Date; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
@@ -51,7 +52,8 @@ export default function BidPage() {
   const [bidAmount, setBidAmount] = useState<string>("");
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+  const { subscribe, unsubscribe, sendMessage, isConnected } = useWebSocket();
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   // 기존 로그인 체크 로직 유지
   useEffect(() => {
@@ -61,31 +63,24 @@ export default function BidPage() {
     }
   }, [user, isLoading, router]);
 
-  // 기존 웹소켓 연결 및 메시지 수신 로직 유지
+  // 웹소켓 구독 관리
   useEffect(() => {
-    if (!user || !auctionId) return;
-
-    const stompClient = connectStomp();
-    setClient(stompClient);
-
-    subscribeToAuction(stompClient, auctionId, (msg) => {
+    if (!user || !auctionId || !isConnected) return;
+    const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[BidPage] 웹소켓 메시지 수신:", msg);
-
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
         return;
       }
-
       // 입찰 실패 메시지 처리
       if (msg.message && msg.message.includes("실패")) {
         alert(msg.message);
         setCanBid(true);
         return;
       }
-
-      // 시스템 메시지가 아닌 경우에만 처리 (성공한 입찰)
+      // 성공한 입찰 처리
       if (msg.nickname !== "System" && msg.currentBid > 0) {
         setMessages((prev) => {
           const bidAmountValue = msg.currentBid || 0;
@@ -98,11 +93,9 @@ export default function BidPage() {
             timestamp: new Date()
           }];
         });
-
         setAuction((prev: Auction | null) => {
           if (prev) {
             const updatedAuction = { ...prev, currentBid: msg.currentBid };
-            // 입찰가 필드 업데이트
             const currentBid = msg.currentBid || updatedAuction.startPrice || 0;
             const minBid = updatedAuction.minBid || 1000;
             const nextBid = currentBid + minBid;
@@ -112,13 +105,14 @@ export default function BidPage() {
           return prev;
         });
         setBidCount(prev => prev + 1);
-
         if (msg.nickname !== user.nickname) setCanBid(true);
       }
     });
-
-    return () => disconnectStomp();
-  }, [user, auctionId]);
+    setSubscriptionId(subId);
+    return () => {
+      if (subId) unsubscribe(subId);
+    };
+  }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
   // 기존 경매 상세 조회 로직 유지
   useEffect(() => {
@@ -173,21 +167,13 @@ export default function BidPage() {
     setTimeLeft(timeStr.trim());
   };
 
-  // 기존 입찰 로직 유지
+  // 입찰 처리
   const handleBid = async (amount: number) => {
-    if (!user) {
-      alert("로그인이 필요합니다.");
+    if (!user || !isConnected) {
+      alert("로그인이 필요하거나 서버 연결이 끊어졌습니다.");
       return;
     }
-
-    if (!client || !client.connected) {
-      console.error("[BidPage] STOMP 연결되지 않음. 메시지 전송 실패.");
-      alert("서버와 연결이 끊어졌습니다. 페이지를 새로고침 해주세요.");
-      return;
-    }
-
-    console.log("[BidPage] 입찰 메시지 전송 시도:", { auctionId, userUUID: user.userUUID, amount });
-    sendAuctionMessage("/app/auction/bid", { auctionId, amount });
+    sendMessage("/app/auction/bid", { auctionId, amount });
     setCanBid(false);
   };
 

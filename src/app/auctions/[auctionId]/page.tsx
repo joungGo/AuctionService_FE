@@ -3,11 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  connectStomp,
-  subscribeToAuction,
-  disconnectStomp,
-} from "@/lib/socket";
 import { getAuctionDetail } from "@/lib/api/auction";
 import {
   Dialog,
@@ -18,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 
 interface AuctionEndMessage { 
   auctionId: number; 
@@ -42,6 +38,8 @@ export default function AuctionPage() {
   const { auctionId } = useParams() as { auctionId: string };
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { subscribe, unsubscribe, isConnected } = useWebSocket();
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -69,35 +67,30 @@ export default function AuctionPage() {
     }
   }, [user, isLoading, router]);
 
-  // 웹소켓 연결 및 메시지 수신
+  // 웹소켓 구독 관리
   useEffect(() => {
-    if (!user || !auctionId) return;
-
-    const stompClient = connectStomp();
-
-    subscribeToAuction(stompClient, auctionId, (msg) => {
+    if (!user || !auctionId || !isConnected) return;
+    const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[AuctionPage] 웹소켓 메시지 수신:", msg);
-
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
         return;
       }
-
-      // 입찰 관련 메시지 처리 (실시간 업데이트만)
+      // 입찰 관련 메시지 처리
       if (msg.nickname && msg.nickname !== "System" && msg.currentBid && msg.currentBid > 0) {
-        // 현재 입찰가 업데이트
         setAuction((prev: Auction | null) => 
           prev ? { ...prev, currentBid: msg.currentBid } : prev
         );
-        // 입찰 수 증가
         setBidCount(prev => prev + 1);
       }
     });
-
-    return () => disconnectStomp();
-  }, [user, auctionId]);
+    setSubscriptionId(subId);
+    return () => {
+      if (subId) unsubscribe(subId);
+    };
+  }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
   // 경매 상세 조회
   useEffect(() => {
