@@ -267,7 +267,7 @@ const AuctionCard = ({
     <div className={`w-full rounded-lg transition-shadow ${
       isOngoing 
         ? 'cursor-pointer hover:shadow-lg' 
-        : 'cursor-default'
+        : 'cursor-pointer hover:shadow-lg'
     }`}>
       <div className="flex flex-col gap-4 p-0">
         <div className="h-[180px] w-full rounded-xl bg-gray-200 overflow-hidden flex items-center justify-center relative">
@@ -323,15 +323,12 @@ const AuctionCard = ({
     </div>
   );
 
-  if (isOngoing) {
-    return (
-      <Link href={`/auctions/${auction.auctionId}`}>
-        {cardContent}
-      </Link>
-    );
-  }
-
-  return cardContent;
+  // 진행 중/예정 경매 모두 상세페이지로 이동 가능하게 Link로 감쌈
+  return (
+    <Link href={`/auctions/${auction.auctionId}`}>
+      {cardContent}
+    </Link>
+  );
 };
 
 // 기존 PopularCard 컴포넌트와 동일 (재사용)

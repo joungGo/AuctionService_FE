@@ -91,14 +91,17 @@ export const connectStomp = (): Client => {
           timestamp: new Date().toISOString()
         });
       } else {
-        // 비정상적인 연결 종료
-        console.error("[socket.ts] WebSocket 비정상 연결 종료:", event.code);
-        console.error("[socket.ts] 연결 종료 상세:", {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-          timestamp: new Date().toISOString()
-        });
+        // 비정상적인 연결 종료: 개발 환경에서만 에러 로그 출력
+        if (process.env.NODE_ENV !== 'production') {
+          console.error("[socket.ts] WebSocket 비정상 연결 종료:", event.code);
+          console.error("[socket.ts] 연결 종료 상세:", {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            timestamp: new Date().toISOString()
+          });
+        }
+        // 운영 환경에서는 조용히 무시 또는 사용자 친화적 처리(필요시)
       }
     },
     onWebSocketError: (event) => {

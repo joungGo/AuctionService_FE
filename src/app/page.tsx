@@ -192,8 +192,20 @@ export default function AuctionPage() {
               지금 이 순간 진행 중인 경매에 참여하세요. 실시간으로 업데이트되는 입찰 현황을 확인할 수 있습니다.
             </p>
           </div>
-          
-          {ongoingAuctions.length > 0 ? (
+          {/* 진행 중 경매가 없을 때 안내 메시지 */}
+          {!error && ongoingAuctions.length === 0 && (
+            <div className="flex justify-center items-center h-40 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 text-lg">진행 중인 경매가 없습니다.</p>
+            </div>
+          )}
+          {/* 에러가 없고, 예정 경매도 없을 때 안내 메시지 */}
+          {!error && ongoingAuctions.length === 0 && upcomingAuctions.length === 0 && (
+            <div className="flex justify-center items-center h-40 bg-gray-50 rounded-lg mt-4">
+              <p className="text-gray-400 text-base">현재 예정된 경매도 없습니다.</p>
+            </div>
+          )}
+          {/* 기존 경매 목록 렌더링 */}
+          {ongoingAuctions.length > 0 && (
             <SlideContainer autoSlideInterval={3000} className="px-4">
               {ongoingAuctions.map((auction) => (
                 <AuctionCard
@@ -204,10 +216,6 @@ export default function AuctionPage() {
       />
               ))}
             </SlideContainer>
-          ) : (
-            <div className="flex justify-center items-center h-48 bg-gray-50 rounded-2xl">
-              <p className="text-gray-500 text-lg">진행 중인 경매가 없습니다.</p>
-            </div>
           )}
         </div>
       </section>
@@ -299,11 +307,7 @@ const AuctionCard = ({
   };
 
   const cardContent = (
-    <div className={`w-full rounded-2xl overflow-hidden transition-all duration-300 ${
-      isOngoing 
-        ? 'cursor-pointer hover:shadow-2xl hover:scale-105' 
-        : 'cursor-default hover:shadow-lg'
-    } bg-white shadow-lg`}>
+    <div className={`w-full rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-2xl hover:scale-105 bg-white shadow-lg`}>
       <div className="relative">
         {/* 이미지 영역 - 더 큰 크기로 최적화 */}
         <div className="h-[200px] sm:h-[220px] w-full bg-gray-200 overflow-hidden flex items-center justify-center relative">
@@ -372,15 +376,12 @@ const AuctionCard = ({
     </div>
   );
 
-  if (isOngoing) {
-    return (
-      <Link href={`/auctions/${auction.auctionId}`}>
-        {cardContent}
-      </Link>
-    );
-  }
-
-  return cardContent;
+  // 진행 중/예정 경매 모두 상세페이지로 이동 가능하게 Link로 감쌈
+  return (
+    <Link href={`/auctions/${auction.auctionId}`}>
+      {cardContent}
+    </Link>
+  );
 };
 
 // 인기 상품 카드 컴포넌트 (전체 화면 최적화)
