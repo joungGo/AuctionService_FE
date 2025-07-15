@@ -185,11 +185,6 @@ export default function AuctionPage() {
         </Dialog>
       )}
 
-      {/* 실시간 참여자 수 표기 */}
-      <div className="w-full flex justify-end items-center px-4 py-2 text-sm text-gray-600">
-        실시간 참여자: {participantCount !== null ? `${participantCount}명` : '-'}
-      </div>
-
       {/* Figma 디자인 100% 반영 */}
       <div className="bg-[#ffffff] box-border content-stretch flex flex-col items-start justify-start p-0 relative size-full">
         <div className="bg-neutral-50 min-h-[800px] relative shrink-0 w-full">
@@ -236,8 +231,11 @@ export default function AuctionPage() {
                       {/* 상품 제목 */}
                       <div className="relative shrink-0 w-full">
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
-                          <div className="css-1bkkkk font-['Work_Sans:Bold',_'Noto_Sans_KR:Bold',_sans-serif] font-bold leading-[0] relative shrink-0 text-[#0f1417] text-[28px] text-left w-full">
-                            <p className="block leading-[35px]">{getAuctionName(auction)}</p>
+                          <div className="flex items-center gap-3 css-1bkkkk font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[0] relative shrink-0 text-[#0f1417] text-[28px] text-left w-full">
+                            <span className="block leading-[35px]">{getAuctionName(auction)}</span>
+                            <span className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                              👥 {participantCount !== null ? `${participantCount}명` : '-'}
+                            </span>
                           </div>
                         </div>
                       </div>

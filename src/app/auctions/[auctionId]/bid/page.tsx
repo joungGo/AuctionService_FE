@@ -21,6 +21,7 @@ import { Client } from "@stomp/stompjs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWebSocket } from "@/app/context/WebSocketContext";
+import { UserGroupIcon } from '@heroicons/react/24/solid';
 
 interface Message { id: number; sender: string; text: string; isMe: boolean; timestamp: Date; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
@@ -274,6 +275,10 @@ export default function BidPage() {
     }
   };
 
+  // 상세 페이지와 동일한 경매 이름 추출 함수 추가
+  const getAuctionName = (auction: any) =>
+    auction.product?.productName || auction.productName || auction.name || auction.auctionName || "경매 상품";
+
   if (isLoading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   if (!user) return <div className="flex justify-center items-center min-h-screen">로그인이 필요합니다.</div>;
   if (!auction) return <div className="flex justify-center items-center min-h-screen">경매 정보를 불러오는 중...</div>;
@@ -313,12 +318,10 @@ export default function BidPage() {
                             <Link href="/" className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
                               홈
                             </Link>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
-                              /
-                            </span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">
-                              {auction.productName || auction.name || "경매 상품"}
-                            </span>
+                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
+                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">수집품</span>
+                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
+                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">{getAuctionName(auction)}</span>
                           </div>
                         </div>
                       </div>
@@ -327,9 +330,12 @@ export default function BidPage() {
                       <div className="relative shrink-0 w-full">
                         <div className="relative size-full">
                           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
-                            <h1 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[22px] leading-[28px] w-full">
-                              {auction.productName || auction.name || "경매 상품"}
-                            </h1>
+                            <div className="flex items-center gap-3 font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[22px] leading-[28px] w-full">
+                              <span>{getAuctionName(auction)}</span>
+                              <span className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                                👥 {participantCount !== null ? `${participantCount}명` : '-'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -509,9 +515,8 @@ export default function BidPage() {
                       </div>
 
                       {/* 실시간 참여자 수 표기 */}
-                      <div className="w-full flex justify-end items-center px-4 py-2 text-sm text-gray-600">
-                        실시간 참여자: {participantCount !== null ? `${participantCount}명` : '-'}
-                      </div>
+                      {/* 상단 우측 고정, 아이콘+컬러+애니메이션 강조 */}
+                      {/* 기존 상단 우측 고정 참여자 UI 완전 제거 */}
 
                                           </div>
                   </div>
