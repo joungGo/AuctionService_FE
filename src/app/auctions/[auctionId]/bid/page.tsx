@@ -20,6 +20,8 @@ import {
 import { Client } from "@stomp/stompjs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
+import { UserGroupIcon } from '@heroicons/react/24/solid';
 
 interface Message { id: number; sender: string; text: string; isMe: boolean; timestamp: Date; }
 interface AuctionEndMessage { auctionId: number; winnerNickname: string; winningBid: number; }
@@ -49,9 +51,11 @@ export default function BidPage() {
   const [canBid, setCanBid] = useState(true);
   const [bidCount, setBidCount] = useState(0);
   const [bidAmount, setBidAmount] = useState<string>("");
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+  const { subscribe, unsubscribe, sendMessage, isConnected, connect } = useWebSocket();
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   // 기존 로그인 체크 로직 유지
   useEffect(() => {
@@ -61,31 +65,28 @@ export default function BidPage() {
     }
   }, [user, isLoading, router]);
 
-  // 기존 웹소켓 연결 및 메시지 수신 로직 유지
+  // 웹소켓 구독 관리
   useEffect(() => {
-    if (!user || !auctionId) return;
-
-    const stompClient = connectStomp();
-    setClient(stompClient);
-
-    subscribeToAuction(stompClient, auctionId, (msg) => {
+    if (!user || !auctionId || !isConnected) return;
+    const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[BidPage] 웹소켓 메시지 수신:", msg);
-
+      // 실시간 참여자 수 메시지 처리
+      if (typeof msg.participantCount === 'number') {
+        setParticipantCount(msg.participantCount);
+      }
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
         return;
       }
-
       // 입찰 실패 메시지 처리
       if (msg.message && msg.message.includes("실패")) {
         alert(msg.message);
         setCanBid(true);
         return;
       }
-
-      // 시스템 메시지가 아닌 경우에만 처리 (성공한 입찰)
+      // 성공한 입찰 처리
       if (msg.nickname !== "System" && msg.currentBid > 0) {
         setMessages((prev) => {
           const bidAmountValue = msg.currentBid || 0;
@@ -98,11 +99,9 @@ export default function BidPage() {
             timestamp: new Date()
           }];
         });
-
         setAuction((prev: Auction | null) => {
           if (prev) {
             const updatedAuction = { ...prev, currentBid: msg.currentBid };
-            // 입찰가 필드 업데이트
             const currentBid = msg.currentBid || updatedAuction.startPrice || 0;
             const minBid = updatedAuction.minBid || 1000;
             const nextBid = currentBid + minBid;
@@ -112,13 +111,76 @@ export default function BidPage() {
           return prev;
         });
         setBidCount(prev => prev + 1);
-
         if (msg.nickname !== user.nickname) setCanBid(true);
       }
-    });
+    }, user.userUUID);
+    setSubscriptionId(subId);
+    return () => {
+      if (subId) unsubscribe(subId);
+    };
+  }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
-    return () => disconnectStomp();
-  }, [user, auctionId]);
+  // 입찰 페이지 진입 시 참여자 집계 메시지 전송
+  useEffect(() => {
+    if (user && auctionId && isConnected) {
+      sendMessage("/app/auction/participant/join", { auctionId, userUUID: user.userUUID });
+    }
+    // 입찰 페이지 이탈 시 참여자 집계 메시지 전송
+    return () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 입찰 페이지에 머무는 동안 주기적으로 ping 메시지 전송 (유령 참여자 방지)
+  useEffect(() => {
+    if (user && auctionId && isConnected) {
+      const interval = setInterval(() => {
+        sendMessage("/app/auction/participant/ping", { auctionId, userUUID: user.userUUID });
+      }, 30000); // 30초마다 ping
+      return () => clearInterval(interval);
+    }
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 창/탭 종료 시 leave 메시지 전송
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 로그아웃 시 leave 메시지 전송 (login-status-change 이벤트 활용)
+  useEffect(() => {
+    const handleLogout = () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    window.addEventListener("login-status-change", handleLogout);
+    return () => {
+      window.removeEventListener("login-status-change", handleLogout);
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 라우터 이동(입찰 페이지 이탈) 시 leave 메시지 전송
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    router.events?.on?.("routeChangeStart", handleRouteChange);
+    return () => {
+      router.events?.off?.("routeChangeStart", handleRouteChange);
+    };
+  }, [user, auctionId, isConnected, sendMessage, router]);
 
   // 기존 경매 상세 조회 로직 유지
   useEffect(() => {
@@ -151,6 +213,12 @@ export default function BidPage() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (user && auctionId) {
+      connect(user.userUUID, auctionId);
+    }
+  }, [user, auctionId, connect]);
+
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
     const now = new Date().getTime();
@@ -173,21 +241,13 @@ export default function BidPage() {
     setTimeLeft(timeStr.trim());
   };
 
-  // 기존 입찰 로직 유지
+  // 입찰 처리
   const handleBid = async (amount: number) => {
-    if (!user) {
-      alert("로그인이 필요합니다.");
+    if (!user || !isConnected) {
+      alert("로그인이 필요하거나 서버 연결이 끊어졌습니다.");
       return;
     }
-
-    if (!client || !client.connected) {
-      console.error("[BidPage] STOMP 연결되지 않음. 메시지 전송 실패.");
-      alert("서버와 연결이 끊어졌습니다. 페이지를 새로고침 해주세요.");
-      return;
-    }
-
-    console.log("[BidPage] 입찰 메시지 전송 시도:", { auctionId, userUUID: user.userUUID, amount });
-    sendAuctionMessage("/app/auction/bid", { auctionId, amount });
+    sendMessage("/app/auction/bid", { auctionId, amount });
     setCanBid(false);
   };
 
@@ -214,6 +274,10 @@ export default function BidPage() {
       handleBid(amount);
     }
   };
+
+  // 상세 페이지와 동일한 경매 이름 추출 함수 추가
+  const getAuctionName = (auction: any) =>
+    auction.product?.productName || auction.productName || auction.name || auction.auctionName || "경매 상품";
 
   if (isLoading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   if (!user) return <div className="flex justify-center items-center min-h-screen">로그인이 필요합니다.</div>;
@@ -254,12 +318,10 @@ export default function BidPage() {
                             <Link href="/" className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
                               홈
                             </Link>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
-                              /
-                            </span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">
-                              {auction.productName || auction.name || "경매 상품"}
-                            </span>
+                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
+                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">수집품</span>
+                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
+                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">{getAuctionName(auction)}</span>
                           </div>
                         </div>
                       </div>
@@ -268,9 +330,12 @@ export default function BidPage() {
                       <div className="relative shrink-0 w-full">
                         <div className="relative size-full">
                           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
-                            <h1 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[22px] leading-[28px] w-full">
-                              {auction.productName || auction.name || "경매 상품"}
-                            </h1>
+                            <div className="flex items-center gap-3 font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[22px] leading-[28px] w-full">
+                              <span>{getAuctionName(auction)}</span>
+                              <span className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                                👥 {participantCount !== null ? `${participantCount}명` : '-'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -448,6 +513,10 @@ export default function BidPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* 실시간 참여자 수 표기 */}
+                      {/* 상단 우측 고정, 아이콘+컬러+애니메이션 강조 */}
+                      {/* 기존 상단 우측 고정 참여자 UI 완전 제거 */}
 
                                           </div>
                   </div>

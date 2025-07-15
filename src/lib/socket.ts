@@ -1,4 +1,3 @@
-import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 
 let stompClient: Client | null = null;
@@ -31,47 +30,27 @@ const getWsUrl = () => {
  * 소켓 연결 함수 (쿠키 기반 인증)
  * @returns STOMP Client
  */
-export const connectStomp = (): Client => {
+export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
   stompClient = new Client({
     webSocketFactory: () => {
-      // SockJS 연결, 쿠키를 자동으로 전송
       let wsUrl = getWsUrl();
-      console.log(`[socket.ts] Original WebSocket URL: ${wsUrl}`);
-      
-      // SockJS를 위해 WSS -> HTTPS, WS -> HTTP 변환
-      if (wsUrl.startsWith('wss://')) {
-        wsUrl = wsUrl.replace('wss://', 'https://');
-        console.log(`[socket.ts] Converted WSS to HTTPS: ${wsUrl}`);
-      } else if (wsUrl.startsWith('ws://')) {
-        wsUrl = wsUrl.replace('ws://', 'http://');
-        console.log(`[socket.ts] Converted WS to HTTP: ${wsUrl}`);
+      // wsUrl이 ws:// 또는 wss://로 시작하는지 확인
+      if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+        // http/https를 ws/wss로 변환
+        if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
+        else if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
       }
-      
-      console.log(`[socket.ts] Creating SockJS connection to: ${wsUrl}`);
-      
-      // SockJS transport 옵션 설정 (쿠키 전송 활성화)
-      return new SockJS(wsUrl, null, {
-        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-        debug: false, // 디버그 로그 감소
-        devel: false,
-        // 연결 유지 설정 강화
-        timeout: 15000,
-        protocols_whitelist: ['websocket', 'xhr-streaming', 'xhr-polling'],
-        info: {
-          websocket: true,
-          origins: ['*:*'],
-          cookie_needed: true, // 쿠키 사용 활성화
-          entropy: Math.random()
-        }
-      });
+      console.log(`[socket.ts] Creating native WebSocket connection to: ${wsUrl}`);
+      return new WebSocket(wsUrl);
     },
     connectHeaders: {
-      // 쿠키 기반 인증이므로 Authorization 헤더 제거
+      ...(userUUID && { userUUID }),
+      ...(auctionId && { auctionId }),
     },
     debug: (str) => console.log("[STOMP DEBUG]", str),
-    reconnectDelay: 3000, // 재연결 주기를 3초로 단축
-    heartbeatIncoming: 4000, // 서버로부터 heartbeat 수신 간격
-    heartbeatOutgoing: 4000, // 서버로 heartbeat 전송 간격
+    reconnectDelay: 3000,
+    heartbeatIncoming: 4000,
+    heartbeatOutgoing: 4000,
     onConnect: (frame) => {
       console.log("[socket.ts] STOMP 연결 성공:", frame);
     },
@@ -80,9 +59,7 @@ export const connectStomp = (): Client => {
       console.error("[socket.ts] STOMP 에러 세부사항:", frame.body);
     },
     onWebSocketClose: (event) => {
-      // WebSocket 종료 코드에 따라 로그 레벨 구분
       if (event.code === 1000 || event.code === 0) {
-        // 정상적인 연결 종료 (1000: Normal Closure, 0: 정상 종료)
         console.log("[socket.ts] WebSocket 정상 연결 종료:", event.code);
         console.log("[socket.ts] 연결 종료 상세:", {
           code: event.code,
@@ -91,14 +68,15 @@ export const connectStomp = (): Client => {
           timestamp: new Date().toISOString()
         });
       } else {
-        // 비정상적인 연결 종료
-        console.error("[socket.ts] WebSocket 비정상 연결 종료:", event.code);
-        console.error("[socket.ts] 연결 종료 상세:", {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-          timestamp: new Date().toISOString()
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.error("[socket.ts] WebSocket 비정상 연결 종료:", event.code);
+          console.error("[socket.ts] 연결 종료 상세:", {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            timestamp: new Date().toISOString()
+          });
+        }
       }
     },
     onWebSocketError: (event) => {
@@ -108,9 +86,8 @@ export const connectStomp = (): Client => {
       console.log("[socket.ts] STOMP 연결 해제:", frame);
     }
   });
-
   console.log("[socket.ts] STOMP 클라이언트 연결 시도");
-  stompClient.activate(); // 연결 시작
+  stompClient.activate();
   return stompClient;
 };
 
@@ -118,22 +95,28 @@ export const connectStomp = (): Client => {
  * 경매 소켓 구독 함수
  * @param client STOMP Client
  * @param auctionId 경매 ID
- * @param onMessage 메시지 수신 시 콜백
+ * @param userUUID 사용자 UUID
+ * @param callback 메시지 수신 시 콜백
+ * @returns 구독 ID
  */
 export const subscribeToAuction = (
   client: Client,
   auctionId: string,
-  onMessage: (message: any) => void
+  userUUID: string,
+  callback: (msg: any) => void
 ) => {
-  console.log("[socket.ts] 경매 구독 시작. 경매 ID:", auctionId);
-
-  client.onConnect = () => {
-    console.log("[socket.ts] STOMP 연결 성공. 구독 진행");
-    client.subscribe(`/sub/auction/${auctionId}`, (msg) => {
-      console.log("[socket.ts] STOMP 메시지 수신:", msg.body);
-      onMessage(JSON.parse(msg.body));
-    });
-  };
+  const id = `auction-${auctionId}-${userUUID}`;
+  const headers = { id, auctionId, userUUID };
+  console.log("[socket.ts] STOMP 구독 헤더:", headers);
+  if (!client.connected) {
+    console.error("[socket.ts] STOMP 연결 안 됨. 구독 실패.");
+    return null;
+  }
+  const subscription = client.subscribe(`/sub/auction/${auctionId}`, (msg) => {
+    console.log("[socket.ts] STOMP 메시지 수신:", msg.body);
+    callback(JSON.parse(msg.body));
+  }, headers);
+  return subscription; // Subscription 객체 전체 반환
 };
 
 /**

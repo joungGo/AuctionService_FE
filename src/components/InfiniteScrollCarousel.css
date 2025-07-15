@@ -1,0 +1,32 @@
+.infinite-carousel-track {
+  animation: scroll-left linear infinite;
+  will-change: transform;
+}
+.infinite-carousel-track:hover {
+  animation-play-state: paused;
+}
+.infinite-carousel-card {
+  flex: 0 0 auto;
+  width: 340px;
+  margin-right: 32px;
+}
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.infinite-carousel-gradient-mask {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  z-index: 10;
+  pointer-events: none;
+}
+.infinite-carousel-gradient-mask.left {
+  left: 0;
+  background: linear-gradient(to right, #f8fafc 90%, transparent 100%);
+}
+.infinite-carousel-gradient-mask.right {
+  right: 0;
+  background: linear-gradient(to left, #f8fafc 90%, transparent 100%);
+} 

@@ -3,11 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  connectStomp,
-  subscribeToAuction,
-  disconnectStomp,
-} from "@/lib/socket";
 import { getAuctionDetail } from "@/lib/api/auction";
 import {
   Dialog,
@@ -18,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 
 interface AuctionEndMessage { 
   auctionId: number; 
@@ -42,6 +38,8 @@ export default function AuctionPage() {
   const { auctionId } = useParams() as { auctionId: string };
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { subscribe, unsubscribe, isConnected } = useWebSocket();
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -50,6 +48,7 @@ export default function AuctionPage() {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
 
   // Toast 표시 함수
   const showToastMessage = (message: string) => {
@@ -61,6 +60,14 @@ export default function AuctionPage() {
     }, 4000);
   };
 
+  // 경매 이름/설명/이미지 우선순위 추출 함수 (product 우선)
+  const getAuctionName = (auction: any) =>
+    auction.product?.productName || auction.productName || auction.name || auction.auctionName || "경매 상품";
+  const getAuctionDescription = (auction: any) =>
+    auction.product?.description || auction.description || auction.desc || auction.auctionDescription || "상품 설명이 없습니다.";
+  const getAuctionImageUrl = (auction: any) =>
+    auction.product?.imageUrl || auction.imageUrl || null;
+
   // 로그인 체크
   useEffect(() => {
     if (!isLoading && !user) {
@@ -69,35 +76,34 @@ export default function AuctionPage() {
     }
   }, [user, isLoading, router]);
 
-  // 웹소켓 연결 및 메시지 수신
+  // 웹소켓 구독 관리
   useEffect(() => {
-    if (!user || !auctionId) return;
-
-    const stompClient = connectStomp();
-
-    subscribeToAuction(stompClient, auctionId, (msg) => {
+    if (!user || !auctionId || !isConnected) return;
+    const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[AuctionPage] 웹소켓 메시지 수신:", msg);
-
+      // 실시간 참여자 수 메시지 처리
+      if (typeof msg.participantCount === 'number') {
+        setParticipantCount(msg.participantCount);
+      }
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
         return;
       }
-
-      // 입찰 관련 메시지 처리 (실시간 업데이트만)
+      // 입찰 관련 메시지 처리
       if (msg.nickname && msg.nickname !== "System" && msg.currentBid && msg.currentBid > 0) {
-        // 현재 입찰가 업데이트
         setAuction((prev: Auction | null) => 
           prev ? { ...prev, currentBid: msg.currentBid } : prev
         );
-        // 입찰 수 증가
         setBidCount(prev => prev + 1);
       }
-    });
-
-    return () => disconnectStomp();
-  }, [user, auctionId]);
+    }, user.userUUID);
+    setSubscriptionId(subId);
+    return () => {
+      if (subId) unsubscribe(subId);
+    };
+  }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
   // 경매 상세 조회
   useEffect(() => {
@@ -216,7 +222,7 @@ export default function AuctionPage() {
                           </div>
                           <div className="relative shrink-0">
                             <div className="css-1bkkkk font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#0f1417] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">{auction.productName || auction.name || "경매 상품"}</p>
+                              <p className="block leading-[24px] whitespace-pre">{getAuctionName(auction)}</p>
                             </div>
                           </div>
                         </div>
@@ -225,8 +231,11 @@ export default function AuctionPage() {
                       {/* 상품 제목 */}
                       <div className="relative shrink-0 w-full">
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
-                          <div className="css-1bkkkk font-['Work_Sans:Bold',_'Noto_Sans_KR:Bold',_sans-serif] font-bold leading-[0] relative shrink-0 text-[#0f1417] text-[28px] text-left w-full">
-                            <p className="block leading-[35px]">{auction.productName || auction.name || "경매 상품"}</p>
+                          <div className="flex items-center gap-3 css-1bkkkk font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[0] relative shrink-0 text-[#0f1417] text-[28px] text-left w-full">
+                            <span className="block leading-[35px]">{getAuctionName(auction)}</span>
+                            <span className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                              👥 {participantCount !== null ? `${participantCount}명` : '-'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -235,7 +244,7 @@ export default function AuctionPage() {
                       <div className="relative shrink-0 w-full">
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-1 px-4 relative w-full">
                           <div className="css-1bkkkk font-['Work_Sans:Regular',_'Noto_Sans_KR:Regular',_sans-serif] font-normal leading-[0] relative shrink-0 text-[#0f1417] text-[16px] text-left w-full">
-                            <p className="block leading-[24px]">{auction.description || "상품 설명이 없습니다."}</p>
+                            <p className="block leading-[24px]">{getAuctionDescription(auction)}</p>
                           </div>
                         </div>
                       </div>
@@ -244,10 +253,10 @@ export default function AuctionPage() {
                       <div className="bg-neutral-50 relative shrink-0 w-full">
                         <div className="p-4">
                           <div className="bg-neutral-50 rounded-xl overflow-hidden">
-                            {auction.imageUrl && auction.imageUrl.trim() ? (
+                            {getAuctionImageUrl(auction) && getAuctionImageUrl(auction).trim() ? (
                               <img
-                                src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
-                                alt={auction.productName || auction.name || "경매 상품"}
+                                src={getAuctionImageUrl(auction).startsWith('http') ? getAuctionImageUrl(auction).trim() : `https://${getAuctionImageUrl(auction).trim()}`}
+                                alt={getAuctionName(auction)}
                                 className="w-full h-[400px] object-cover rounded-lg"
                               />
                             ) : (
