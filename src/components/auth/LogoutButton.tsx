@@ -5,10 +5,12 @@
 import { useRouter } from "next/navigation";
 import { logoutUser, removeAuthData } from "@/lib/api/auth";
 import { useAuth } from "@/app/context/AuthContext";
+import { useWebSocket } from "@/app/context/WebSocketContext";
 
 export const LogoutButton = () => {
   const router = useRouter();
   const { refreshAuth } = useAuth();
+  const { disconnect } = useWebSocket();
 
   const handleLogout = async () => {
     try {
@@ -17,6 +19,9 @@ export const LogoutButton = () => {
 
       // 클라이언트 사이드 인증 정보 정리
       removeAuthData();
+
+      // 웹소켓 연결 해제
+      disconnect();
 
       // 인증 상태 새로고침
       await refreshAuth();

@@ -48,6 +48,7 @@ export default function AuctionPage() {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
 
   // Toast 표시 함수
   const showToastMessage = (message: string) => {
@@ -80,6 +81,10 @@ export default function AuctionPage() {
     if (!user || !auctionId || !isConnected) return;
     const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[AuctionPage] 웹소켓 메시지 수신:", msg);
+      // 실시간 참여자 수 메시지 처리
+      if (typeof msg.participantCount === 'number') {
+        setParticipantCount(msg.participantCount);
+      }
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
@@ -93,7 +98,7 @@ export default function AuctionPage() {
         );
         setBidCount(prev => prev + 1);
       }
-    });
+    }, user.userUUID);
     setSubscriptionId(subId);
     return () => {
       if (subId) unsubscribe(subId);
@@ -179,6 +184,11 @@ export default function AuctionPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* 실시간 참여자 수 표기 */}
+      <div className="w-full flex justify-end items-center px-4 py-2 text-sm text-gray-600">
+        실시간 참여자: {participantCount !== null ? `${participantCount}명` : '-'}
+      </div>
 
       {/* Figma 디자인 100% 반영 */}
       <div className="bg-[#ffffff] box-border content-stretch flex flex-col items-start justify-start p-0 relative size-full">

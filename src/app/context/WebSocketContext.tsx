@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { Client } from "@stomp/stompjs";
-import { connectStomp, disconnectStomp, sendAuctionMessage } from "@/lib/socket";
+import { connectStomp, disconnectStomp, sendAuctionMessage, subscribeToAuction } from "@/lib/socket";
+import { useAuth } from "./AuthContext";
 
 interface Subscription {
   id: string;
@@ -36,13 +37,15 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const connectionAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+  const { user } = useAuth();
 
-  const connect = useCallback(async (): Promise<void> => {
+  // 1. connect 함수 시그니처 변경
+  const connect = useCallback(async (userUUID?: string, auctionId?: string): Promise<void> => {
     if (isConnecting || isConnected) return;
     try {
       setIsConnecting(true);
       connectionAttemptsRef.current++;
-      const client = connectStomp();
+      const client = connectStomp(userUUID, auctionId);
       stompClientRef.current = client;
       client.onConnect = () => {
         setIsConnected(true);
@@ -89,7 +92,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     }, delay);
   }, []);
 
-  const subscribe = useCallback((destination: string, callback: (message: any) => void): string => {
+  // 2. subscribe 함수에서 auctionId, userUUID를 기억해 connect에 넘길 수 있도록 개선 필요(구조상 Provider에서 auctionId를 알 수 없으므로, 사용처에서 connect 호출 시 userUUID, auctionId를 넘기도록 안내)
+  const subscribe = useCallback((destination: string, callback: (message: any) => void, userUUID?: string): string => {
     const subscriptionId = `${destination}_${Date.now()}_${Math.random()}`;
     const subscription: Subscription = {
       id: subscriptionId,
@@ -99,10 +103,19 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     };
     subscriptionsRef.current.set(subscriptionId, subscription);
     if (stompClientRef.current?.connected) {
-      const stompSubscription = stompClientRef.current.subscribe(destination, (msg) => {
-        callback(JSON.parse(msg.body));
-      });
-      subscription.subscription = stompSubscription;
+      // 경매방 구독이면 헤더에 auctionId, userUUID 포함
+      const auctionMatch = destination.match(/^\/sub\/auction\/(\w+)$/);
+      if (auctionMatch && userUUID) {
+        const auctionId = auctionMatch[1];
+        const stompSubscription = subscribeToAuction(stompClientRef.current, auctionId, userUUID, callback);
+        subscription.subscription = stompSubscription;
+      } else {
+        // 일반 채널 구독
+        const stompSubscription = stompClientRef.current.subscribe(destination, (msg) => {
+          callback(JSON.parse(msg.body));
+        });
+        subscription.subscription = stompSubscription;
+      }
     }
     return subscriptionId;
   }, []);
@@ -143,12 +156,16 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     subscriptionCount: subscriptionsRef.current.size
   }), []);
 
+  // 로그인 상태(user) 변화에 따라 웹소켓 연결/해제
   useEffect(() => {
-    connect();
-    return () => {
+    if (user) {
+      connect();
+    } else {
       disconnect();
-    };
-  }, []);
+    }
+    // user가 바뀔 때마다 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
     <WebSocketContext.Provider value={{

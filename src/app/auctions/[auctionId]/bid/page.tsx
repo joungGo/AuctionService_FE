@@ -50,9 +50,10 @@ export default function BidPage() {
   const [canBid, setCanBid] = useState(true);
   const [bidCount, setBidCount] = useState(0);
   const [bidAmount, setBidAmount] = useState<string>("");
+  const [participantCount, setParticipantCount] = useState<number | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { subscribe, unsubscribe, sendMessage, isConnected } = useWebSocket();
+  const { subscribe, unsubscribe, sendMessage, isConnected, connect } = useWebSocket();
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   // 기존 로그인 체크 로직 유지
@@ -68,6 +69,10 @@ export default function BidPage() {
     if (!user || !auctionId || !isConnected) return;
     const subId = subscribe(`/sub/auction/${auctionId}`, (msg) => {
       console.log("[BidPage] 웹소켓 메시지 수신:", msg);
+      // 실시간 참여자 수 메시지 처리
+      if (typeof msg.participantCount === 'number') {
+        setParticipantCount(msg.participantCount);
+      }
       // 경매 종료 메시지 처리
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
@@ -107,12 +112,74 @@ export default function BidPage() {
         setBidCount(prev => prev + 1);
         if (msg.nickname !== user.nickname) setCanBid(true);
       }
-    });
+    }, user.userUUID);
     setSubscriptionId(subId);
     return () => {
       if (subId) unsubscribe(subId);
     };
   }, [user, auctionId, isConnected, subscribe, unsubscribe]);
+
+  // 입찰 페이지 진입 시 참여자 집계 메시지 전송
+  useEffect(() => {
+    if (user && auctionId && isConnected) {
+      sendMessage("/app/auction/participant/join", { auctionId, userUUID: user.userUUID });
+    }
+    // 입찰 페이지 이탈 시 참여자 집계 메시지 전송
+    return () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 입찰 페이지에 머무는 동안 주기적으로 ping 메시지 전송 (유령 참여자 방지)
+  useEffect(() => {
+    if (user && auctionId && isConnected) {
+      const interval = setInterval(() => {
+        sendMessage("/app/auction/participant/ping", { auctionId, userUUID: user.userUUID });
+      }, 30000); // 30초마다 ping
+      return () => clearInterval(interval);
+    }
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 창/탭 종료 시 leave 메시지 전송
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 로그아웃 시 leave 메시지 전송 (login-status-change 이벤트 활용)
+  useEffect(() => {
+    const handleLogout = () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    window.addEventListener("login-status-change", handleLogout);
+    return () => {
+      window.removeEventListener("login-status-change", handleLogout);
+    };
+  }, [user, auctionId, isConnected, sendMessage]);
+
+  // 라우터 이동(입찰 페이지 이탈) 시 leave 메시지 전송
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (user && auctionId && isConnected) {
+        sendMessage("/app/auction/participant/leave", { auctionId, userUUID: user.userUUID });
+      }
+    };
+    router.events?.on?.("routeChangeStart", handleRouteChange);
+    return () => {
+      router.events?.off?.("routeChangeStart", handleRouteChange);
+    };
+  }, [user, auctionId, isConnected, sendMessage, router]);
 
   // 기존 경매 상세 조회 로직 유지
   useEffect(() => {
@@ -144,6 +211,12 @@ export default function BidPage() {
       chatContainerRef.current.scrollTop = 0; // 최신 메시지가 위에 있으므로 맨 위로 스크롤
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (user && auctionId) {
+      connect(user.userUUID, auctionId);
+    }
+  }, [user, auctionId, connect]);
 
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
@@ -433,6 +506,11 @@ export default function BidPage() {
                             </button>
                           </div>
                         </div>
+                      </div>
+
+                      {/* 실시간 참여자 수 표기 */}
+                      <div className="w-full flex justify-end items-center px-4 py-2 text-sm text-gray-600">
+                        실시간 참여자: {participantCount !== null ? `${participantCount}명` : '-'}
                       </div>
 
                                           </div>
