@@ -9,7 +9,7 @@ import {
   disconnectStomp,
   sendAuctionMessage,
 } from "@/lib/socket";
-import { getAuctionDetail } from "@/lib/api/auction";
+import { getAuctionBidDetail } from "@/lib/api/auction";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +30,14 @@ interface Auction {
   auctionId: number;
   productName: string; 
   imageUrl: string; 
-  description: string; 
+  description?: string; 
   startPrice: number; 
   currentBid: number; 
   minBid: number; 
   endTime: string;
   startTime: string;
+  highestBidderUUID?: string;
+  highestBidderNickname?: string;
 }
 
 export default function BidPage() {
@@ -101,7 +103,13 @@ export default function BidPage() {
         });
         setAuction((prev: Auction | null) => {
           if (prev) {
-            const updatedAuction = { ...prev, currentBid: msg.currentBid };
+            // 실시간 최고 입찰자 정보 업데이트
+            const updatedAuction = { 
+              ...prev, 
+              currentBid: msg.currentBid,
+              highestBidderUUID: msg.userUUID,  // 실시간 업데이트
+              highestBidderNickname: msg.nickname
+            };
             const currentBid = msg.currentBid || updatedAuction.startPrice || 0;
             const minBid = updatedAuction.minBid || 1000;
             const nextBid = currentBid + minBid;
@@ -182,17 +190,16 @@ export default function BidPage() {
     };
   }, [user, auctionId, isConnected, sendMessage, router]);
 
-  // 기존 경매 상세 조회 로직 유지
+  // 입찰 페이지 전용 상세 정보 조회
   useEffect(() => {
     (async () => {
-      const data = await getAuctionDetail(auctionId);
-      if (data?.data) {
-        setAuction(data.data);
-        calculateTimeLeft(data.data.endTime);
-        
+      const data = await getAuctionBidDetail(auctionId);
+      if (data) {
+        setAuction(data);
+        calculateTimeLeft(data.endTime);
         // 초기 입찰가 설정
-        const currentBid = data.data.currentBid || data.data.startPrice || 0;
-        const minBid = data.data.minBid || 1000;
+        const currentBid = data.currentBid || data.startPrice || 0;
+        const minBid = data.minBid || 1000;
         const nextBid = currentBid + minBid;
         setBidAmount(nextBid.toString());
       }
@@ -278,6 +285,9 @@ export default function BidPage() {
   // 상세 페이지와 동일한 경매 이름 추출 함수 추가
   const getAuctionName = (auction: any) =>
     auction.product?.productName || auction.productName || auction.name || auction.auctionName || "경매 상품";
+
+  // 최고 입찰자 상태에 따라 버튼 비활성화
+  const isHighestBidder = user && auction && auction.highestBidderUUID === user.userUUID;
 
   if (isLoading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   if (!user) return <div className="flex justify-center items-center min-h-screen">로그인이 필요합니다.</div>;
@@ -499,13 +509,13 @@ export default function BidPage() {
                           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row items-start justify-start px-4 py-3 relative w-full">
                             <button
                               onClick={handleBidClick}
-                              disabled={!canBid || timeLeft === "경매 종료"}
+                              disabled={isHighestBidder || !canBid || timeLeft === "경매 종료"}
                               className="basis-0 bg-[#dbe8f2] grow h-10 max-w-[480px] min-h-px min-w-[84px] relative rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c5d6e6] transition-colors"
                             >
                               <div className="flex flex-row items-center justify-center max-w-inherit min-w-inherit overflow-clip relative size-full">
                                 <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row h-10 items-center justify-center max-w-inherit min-w-inherit px-4 py-0 relative w-full">
                                   <div className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[14px] leading-[21px] text-center">
-                                    입찰하기
+                                    {isHighestBidder ? "최고 입찰자입니다" : "입찰하기"}
                                   </div>
                                 </div>
                               </div>
