@@ -281,7 +281,7 @@ export default function BidPage() {
   const saveRealtimeBids = useCallback((messagesToSave: Message[]) => {
     if (!auctionId || !user) return;
     const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
-    localStorage.setItem(sessionKey, JSON.stringify(messagesToSave));
+    sessionStorage.setItem(sessionKey, JSON.stringify(messagesToSave));
   }, [auctionId, user]);
 
   // 실시간 입찰 내역 세션 복원
@@ -292,7 +292,7 @@ export default function BidPage() {
     const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
     
     // 페이지 로드 시 저장된 실시간 입찰 내역 복원
-    const savedMessages = localStorage.getItem(sessionKey);
+    const savedMessages = sessionStorage.getItem(sessionKey);
     if (savedMessages) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
@@ -310,7 +310,14 @@ export default function BidPage() {
     }
   }, [auctionId, user]);
 
-  // 페이지 언로드 시 실시간 입찰 내역 저장
+  // 실시간 입찰 내역 삭제 함수
+  const clearRealtimeBids = useCallback(() => {
+    if (!auctionId || !user) return;
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    sessionStorage.removeItem(sessionKey);
+  }, [auctionId, user]);
+
+  // 페이지 언로드 시 실시간 입찰 내역 저장 (새로고침 시에만)
   useEffect(() => {
     const handleBeforeUnload = () => {
       saveRealtimeBids(messages);
@@ -320,10 +327,15 @@ export default function BidPage() {
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // 컴포넌트 언마운트 시에도 저장
-      saveRealtimeBids(messages);
     };
   }, [messages, saveRealtimeBids]);
+
+  // 컴포넌트 언마운트 시 실시간 입찰 내역 삭제 (페이지 이탈 시)
+  useEffect(() => {
+    return () => {
+      clearRealtimeBids();
+    };
+  }, [clearRealtimeBids]);
 
   useEffect(() => {
     if (user && auctionId) {
