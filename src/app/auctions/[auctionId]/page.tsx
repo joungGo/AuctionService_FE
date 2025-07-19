@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAuctionDetail } from "@/lib/api/auction";
+import { getCategoryById, Category } from "@/lib/api/category";
+import Breadcrumb from "@/components/auction/Breadcrumb";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,8 @@ interface Auction {
   minBid: number; 
   endTime: string;
   startTime: string;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 export default function AuctionPage() {
@@ -42,6 +46,7 @@ export default function AuctionPage() {
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   const [auction, setAuction] = useState<Auction | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [bidCount, setBidCount] = useState<number>(0);
   const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
@@ -105,7 +110,7 @@ export default function AuctionPage() {
     };
   }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
-  // 경매 상세 조회
+  // 경매 상세 조회 및 카테고리 정보 조회
   useEffect(() => {
     (async () => {
       const data = await getAuctionDetail(auctionId);
@@ -114,6 +119,16 @@ export default function AuctionPage() {
         console.log("[AuctionPage] 경매 데이터:", data.data);
         setAuction(data.data);
         calculateTimeLeft(data.data.endTime);
+        
+        // 카테고리 정보 조회
+        if (data.data.categoryId) {
+          try {
+            const categoryData = await getCategoryById(data.data.categoryId);
+            setCategory(categoryData.data);
+          } catch (err) {
+            console.error("[AuctionPage] 카테고리 조회 실패:", err);
+          }
+        }
       }
     })();
   }, [auctionId]);
@@ -198,35 +213,10 @@ export default function AuctionPage() {
                     <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start max-w-inherit overflow-clip p-0 relative w-full">
                       
                       {/* 브레드크럼 네비게이션 */}
-                      <div className="relative shrink-0 w-full">
-                        <div className="[flex-flow:wrap] bg-clip-padding border-0 border-[transparent] border-solid box-border content-start flex gap-2 items-start justify-start p-[16px] relative w-full">
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre cursor-pointer hover:text-[#0f1417]" onClick={() => router.push("/")}>홈</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">/</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">수집품</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">/</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-1bkkkk font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#0f1417] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">{getAuctionName(auction)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <Breadcrumb 
+                        category={category}
+                        productName={getAuctionName(auction)}
+                      />
 
                       {/* 상품 제목 */}
                       <div className="relative shrink-0 w-full">

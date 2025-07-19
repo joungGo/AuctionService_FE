@@ -1,12 +1,14 @@
 // src/app/admin/auctions/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { getApiBaseUrl } from "@/lib/config";
+import { adminGetAllCategories, Category } from "@/lib/api/category";
 
 export default function AdminAuctionCreatePage() {
   const [productName, setProductName] = useState("");
@@ -16,8 +18,24 @@ export default function AdminAuctionCreatePage() {
   const [endTime, setEndTime] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // 카테고리 목록 로드
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await adminGetAllCategories();
+        setCategories(response.data || []);
+      } catch (error) {
+        console.error("카테고리 목록 로드 실패:", error);
+        setMessage("❌ 카테고리 목록을 불러올 수 없습니다.");
+      }
+    };
+    loadCategories();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +61,7 @@ export default function AdminAuctionCreatePage() {
           endTime,
           imageUrl,
           description,
+          categoryId: categoryId ? Number(categoryId) : null,
         }),
       });
 
@@ -62,6 +81,7 @@ export default function AdminAuctionCreatePage() {
       setEndTime("");
       setImageUrl("");
       setDescription("");
+      setCategoryId("");
     } catch (error) {
       console.error("❌ 경매 등록 실패:", error);
       setMessage("❌ 경매 등록 실패: " + (error as Error).message);
@@ -135,7 +155,24 @@ export default function AdminAuctionCreatePage() {
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          <Button onClick={handleSubmit}>경매 등록하기</Button>
+          <div className="flex items-center gap-2">
+            <label className="w-24">카테고리:</label>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="카테고리를 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.categoryId} value={category.categoryId.toString()}>
+                    {category.categoryName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "등록 중..." : "경매 등록하기"}
+          </Button>
         </CardContent>
       </Card>
 
