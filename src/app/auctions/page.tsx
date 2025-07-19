@@ -4,16 +4,44 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import dayjs from "dayjs";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/config";
+import { getAllAuctions } from "@/lib/api/auction";
+import CategoryFilter from "@/components/auction/CategoryFilter";
 
 export default function AllAuctionsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [auctions, setAuctions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState<{ [key: number]: string }>({});
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
 
-  // ✅ 경매 데이터 불러오기 - 메인 페이지와 동일한 로직
+  // URL 파라미터에서 카테고리 ID 읽기
+  useEffect(() => {
+    const categoryId = searchParams.get('category');
+    if (categoryId) {
+      setSelectedCategoryId(parseInt(categoryId));
+    } else {
+      setSelectedCategoryId(null);
+    }
+  }, [searchParams]);
+
+  // 카테고리 변경 시 URL 업데이트
+  const handleCategoryChange = (categoryId: number | null) => {
+    setSelectedCategoryId(categoryId);
+    const params = new URLSearchParams(searchParams);
+    if (categoryId) {
+      params.set('category', categoryId.toString());
+    } else {
+      params.delete('category');
+    }
+    router.push(`/auctions?${params.toString()}`);
+  };
+
+  // ✅ 경매 데이터 불러오기 - 카테고리 필터링 지원
   const fetchAuctions = async (isInitialLoad = false) => {
     if (isInitialLoad) {
       setLoading(true);
@@ -22,15 +50,7 @@ export default function AllAuctionsPage() {
     }
     setError("");
     try {
-      const apiBaseUrl = getApiBaseUrl();
-      const fullUrl = `${apiBaseUrl}/auctions`;
-      console.log('[AllAuctions] Fetching auctions from:', fullUrl);
-      
-      const response = await fetch(fullUrl);
-      console.log('[AllAuctions] Response status:', response.status);
-      
-      if (!response.ok) throw new Error("경매 목록 조회 실패");
-      const data = await response.json();
+      const data = await getAllAuctions(selectedCategoryId || undefined);
       console.log('[AllAuctions] Response data:', data);
       setAuctions(data.data);
     } catch (err: any) {
@@ -45,7 +65,7 @@ export default function AllAuctionsPage() {
     }
   };
 
-  // ✅ 최초 호출 및 주기적 갱신 - 메인 페이지와 동일
+  // ✅ 최초 호출 및 주기적 갱신 - 카테고리 변경 시에도 갱신
   useEffect(() => {
     fetchAuctions(true);
     const interval = setInterval(() => {
@@ -53,7 +73,7 @@ export default function AllAuctionsPage() {
       fetchAuctions(false);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedCategoryId]);
 
   // ✅ 남은 시간 계산 - 메인 페이지와 동일
   useEffect(() => {
@@ -113,17 +133,32 @@ export default function AllAuctionsPage() {
       {/* 로딩 및 에러 상태 */}
       {loading && (
         <div className="flex justify-center items-center h-64">
-          <p className="text-gray-600">불러오는 중...</p>
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <p className="text-gray-600">경매 목록을 불러오는 중...</p>
+          </div>
         </div>
       )}
       {refreshing && (
-        <div className="fixed top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm z-50">
-          🔄 갱신 중...
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-full text-sm z-50 shadow-lg flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          <span>갱신 중...</span>
         </div>
       )}
       {error && (
         <div className="flex justify-center items-center h-64">
-          <p className="text-red-500">{error}</p>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+              <span className="text-red-500 text-2xl">⚠️</span>
+            </div>
+            <p className="text-red-500 text-center">{error}</p>
+            <button 
+              onClick={() => fetchAuctions(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              다시 시도
+            </button>
+          </div>
         </div>
       )}
 
@@ -146,6 +181,12 @@ export default function AllAuctionsPage() {
             </div>
             <p className="text-gray-600 mt-2">모든 경매를 한 눈에 확인하세요</p>
           </div>
+
+          {/* 카테고리 필터 */}
+          <CategoryFilter 
+            selectedCategoryId={selectedCategoryId}
+            onCategoryChange={handleCategoryChange}
+          />
 
           {/* 실시간 경매 섹션 */}
           <AllAuctionSection
@@ -212,7 +253,10 @@ const AllAuctionSection = ({
       </div>
     ) : (
       <div className="flex justify-center items-center h-32 bg-white rounded-lg">
-        <p className="text-gray-500">{emptyMessage}</p>
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-gray-400 text-2xl">📦</span>
+          <p className="text-gray-500">{emptyMessage}</p>
+        </div>
       </div>
     )}
   </div>
@@ -247,7 +291,10 @@ const PopularAuctionSection = ({
       </div>
     ) : (
       <div className="flex justify-center items-center h-32 bg-white rounded-lg">
-        <p className="text-gray-500">{emptyMessage}</p>
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-gray-400 text-2xl">🏆</span>
+          <p className="text-gray-500">{emptyMessage}</p>
+        </div>
       </div>
     )}
   </div>
@@ -286,6 +333,15 @@ const AuctionCard = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
               </svg>
               <span className="text-xs">이미지 없음</span>
+            </div>
+          )}
+          {/* 카테고리 배지 */}
+          {auction.categoryName && (
+            <div className="absolute top-2 left-2 z-10">
+              <span className="inline-block px-2 py-1 text-xs bg-blue-500 text-white rounded-full font-medium shadow-sm flex items-center gap-1">
+                <span>{getCategoryIcon(auction.categoryName)}</span>
+                <span>{auction.categoryName}</span>
+              </span>
             </div>
           )}
           {isOngoing && (
@@ -340,7 +396,7 @@ const PopularCard = ({
   <Link href={`/auctions/${auction.auctionId}`}>
     <div className="w-full cursor-pointer hover:shadow-lg transition-shadow rounded-lg">
       <div className="flex flex-col gap-3 pb-3">
-        <div className="h-[200px] w-full rounded-xl bg-gray-200 overflow-hidden flex items-center justify-center">
+        <div className="h-[200px] w-full rounded-xl bg-gray-200 overflow-hidden flex items-center justify-center relative">
           {auction.imageUrl && auction.imageUrl.trim() ? (
             <Image
               src={auction.imageUrl.startsWith('http') ? auction.imageUrl.trim() : `https://${auction.imageUrl.trim()}`}
@@ -355,6 +411,15 @@ const PopularCard = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
               </svg>
               <span className="text-sm">이미지 없음</span>
+            </div>
+          )}
+          {/* 카테고리 배지 */}
+          {auction.categoryName && (
+            <div className="absolute top-2 left-2 z-10">
+              <span className="inline-block px-2 py-1 text-xs bg-blue-500 text-white rounded-full font-medium shadow-sm flex items-center gap-1">
+                <span>{getCategoryIcon(auction.categoryName)}</span>
+                <span>{auction.categoryName}</span>
+              </span>
             </div>
           )}
         </div>

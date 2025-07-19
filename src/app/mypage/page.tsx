@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/config";
+import { getUserBidHistory } from "@/lib/api/auction";
 
 interface User {
   nickname: string;
@@ -86,17 +87,37 @@ export default function MyPage() {
       .then((data) => data?.data && Array.isArray(data.data) ? setAuctions(data.data) : [])
       .catch(console.error);
 
-    // TODO: 입찰 내역 API 연결 (현재는 샘플 데이터)
-    // fetch(`${API_BASE_URL}/auctions/${uuid}/bids`, {
-    //   headers,
-    //   credentials: 'include'
-    // })
-    // .then((res) => res.ok ? res.json() : null)
-    // .then((data) => data?.data && Array.isArray(data.data) ? setBidHistory(data.data) : [])
-    // .catch(console.error);
-
-    // 임시 샘플 데이터 - 실제 API 연결 시 제거
-    setBidHistory([]);
+    // 입찰 내역 API 연결
+    getUserBidHistory(uuid)
+      .then((data) => {
+        let apiBids: BidHistory[] = [];
+        if (data?.data && Array.isArray(data.data)) {
+          apiBids = data.data;
+        }
+        
+        // 로컬 스토리지에서 입찰 내역 가져오기
+        const localBids = JSON.parse(localStorage.getItem(`bidHistory_${uuid}`) || '[]');
+        
+        // API 데이터와 로컬 데이터 병합
+        const mergedBids = [...apiBids];
+        
+        // 로컬 데이터 중 API에 없는 것만 추가
+        localBids.forEach((localBid: any) => {
+          const exists = mergedBids.some(apiBid => apiBid.auctionId === localBid.auctionId);
+          if (!exists) {
+            mergedBids.push(localBid);
+          }
+        });
+        
+        setBidHistory(mergedBids);
+      })
+      .catch((error) => {
+        console.error("입찰 내역 조회 실패:", error);
+        
+        // API 실패 시 로컬 스토리지만 사용
+        const localBids = JSON.parse(localStorage.getItem(`bidHistory_${uuid}`) || '[]');
+        setBidHistory(localBids);
+      });
 
     // TODO: 관심 목록 API 연결 (현재는 샘플 데이터)
     // fetch(`${API_BASE_URL}/auctions/${uuid}/wishlist`, {
@@ -365,39 +386,44 @@ export default function MyPage() {
 
             {/* 입찰 내역 목록 */}
             <div className="space-y-0">
-              {activeBidTab === 'won' ? (
-                // 낙찰 탭: 왼쪽 네비게이션의 "낙찰 받은 경매"와 동일한 DB 데이터 사용
-                auctions.length > 0 ? (
-                  auctions.map((auction) => (
-                    <div key={auction.auctionId} className="bg-[#f7fafc] min-h-[72px] flex items-center">
-                      <div className="flex items-center gap-4 px-4 py-2 w-full">
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                          <img
-                            src={auction.imageUrl || "/default-image.jpg"}
-                            alt={auction.productName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => (e.currentTarget.src = "/default-image.jpg")}
-                          />
+              {filteredBidHistory.length > 0 ? (
+                filteredBidHistory.map((bid) => (
+                  <div key={bid.auctionId} className="bg-[#f7fafc] min-h-[72px] flex items-center">
+                    <div className="flex items-center gap-4 px-4 py-2 w-full">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                        <img
+                          src={bid.imageUrl || "/default-image.jpg"}
+                          alt={bid.productName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => (e.currentTarget.src = "/default-image.jpg")}
+                        />
+                      </div>
+                      <div className="flex flex-col justify-center flex-1">
+                        <p className="font-medium text-[16px] leading-[24px] text-[#0d141c] whitespace-nowrap mb-1">
+                          {bid.productName}
+                        </p>
+                        <div className="flex gap-4 text-[14px] leading-[21px] text-[#4a739c]">
+                          <span>내 입찰가: ₩{bid.myBid.toLocaleString()}</span>
+                          <span>현재가: ₩{bid.currentBid.toLocaleString()}</span>
+                          <span className={`font-semibold ${
+                            bid.status === 'won' ? 'text-green-600' : 
+                            bid.status === 'lost' ? 'text-red-600' : 'text-blue-600'
+                          }`}>
+                            {bid.status === 'won' ? '낙찰' : 
+                             bid.status === 'lost' ? '패찰' : '진행중'}
+                          </span>
                         </div>
-                        <div className="flex flex-col justify-center flex-1">
-                          <p className="font-medium text-[16px] leading-[24px] text-[#0d141c] whitespace-nowrap mb-1">
-                            {auction.productName}
-                          </p>
-                          <div className="flex gap-4 text-[14px] leading-[21px] text-[#4a739c]">
-                            <span>낙찰가: ₩{auction.winningBid.toLocaleString()}</span>
-                            <span className="text-green-600 font-semibold">낙찰 성공</span>
-                          </div>
-                        </div>
+                        <p className="text-[12px] text-[#4a739c] mt-1">
+                          입찰 시간: {new Date(bid.bidTime).toLocaleString()}
+                        </p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-[#4a739c] mt-4 text-center">낙찰받은 경매가 없습니다.</p>
-                )
+                  </div>
+                ))
               ) : (
-                // 진행중, 패찰 탭: 데이터 없음
                 <p className="text-[#4a739c] mt-4 text-center">
-                  {activeBidTab === 'active' ? '진행중인 입찰이 없습니다.' : '패찰한 입찰이 없습니다.'}
+                  {activeBidTab === 'active' ? '진행중인 입찰이 없습니다.' : 
+                   activeBidTab === 'won' ? '낙찰한 입찰이 없습니다.' : '패찰한 입찰이 없습니다.'}
                 </p>
               )}
             </div>

@@ -10,6 +10,8 @@ import {
   sendAuctionMessage,
 } from "@/lib/socket";
 import { getAuctionBidDetail } from "@/lib/api/auction";
+import { getCategoryById, Category } from "@/lib/api/category";
+import Breadcrumb from "@/components/auction/Breadcrumb";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +40,8 @@ interface Auction {
   startTime: string;
   highestBidderUUID?: string;
   highestBidderNickname?: string;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 export default function BidPage() {
@@ -46,6 +50,7 @@ export default function BidPage() {
   const { user, isLoading } = useAuth();
 
   const [auction, setAuction] = useState<Auction | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
@@ -80,6 +85,22 @@ export default function BidPage() {
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
+        
+        // 로컬 스토리지의 입찰 내역 상태 업데이트
+        if (user) {
+          const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+          const updatedBids = existingBids.map((bid: any) => {
+            if (bid.auctionId === parseInt(auctionId)) {
+              return {
+                ...bid,
+                currentBid: msg.winningBid,
+                status: msg.winnerNickname === user.nickname ? 'won' : 'lost'
+              };
+            }
+            return bid;
+          });
+          localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(updatedBids));
+        }
         return;
       }
       // 입찰 실패 메시지 처리
@@ -114,6 +135,22 @@ export default function BidPage() {
             const minBid = updatedAuction.minBid || 1000;
             const nextBid = currentBid + minBid;
             setBidAmount(nextBid.toString());
+            
+            // 로컬 스토리지의 입찰 내역 현재가 업데이트
+            if (user) {
+              const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+              const updatedBids = existingBids.map((bid: any) => {
+                if (bid.auctionId === parseInt(auctionId)) {
+                  return {
+                    ...bid,
+                    currentBid: msg.currentBid
+                  };
+                }
+                return bid;
+              });
+              localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(updatedBids));
+            }
+            
             return updatedAuction;
           }
           return prev;
@@ -190,7 +227,7 @@ export default function BidPage() {
     };
   }, [user, auctionId, isConnected, sendMessage, router]);
 
-  // 입찰 페이지 전용 상세 정보 조회
+  // 입찰 페이지 전용 상세 정보 조회 및 카테고리 정보 조회
   useEffect(() => {
     (async () => {
       const data = await getAuctionBidDetail(auctionId);
@@ -202,6 +239,16 @@ export default function BidPage() {
         const minBid = data.minBid || 1000;
         const nextBid = currentBid + minBid;
         setBidAmount(nextBid.toString());
+        
+        // 카테고리 정보 조회
+        if (data.categoryId) {
+          try {
+            const categoryData = await getCategoryById(data.categoryId);
+            setCategory(categoryData.data);
+          } catch (err) {
+            console.error("[BidPage] 카테고리 조회 실패:", err);
+          }
+        }
       }
     })();
   }, [auctionId]);
@@ -254,6 +301,33 @@ export default function BidPage() {
       alert("로그인이 필요하거나 서버 연결이 끊어졌습니다.");
       return;
     }
+    
+    // 로컬 스토리지에 입찰 내역 저장
+    const bidRecord = {
+      auctionId: parseInt(auctionId),
+      productName: auction?.productName || "상품명 없음",
+      description: auction?.description,
+      myBid: amount,
+      currentBid: amount,
+      bidTime: new Date().toISOString(),
+      imageUrl: auction?.imageUrl,
+      status: 'active' as const
+    };
+    
+    // 기존 입찰 내역 가져오기
+    const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+    
+    // 같은 경매에 대한 기존 입찰이 있으면 업데이트, 없으면 추가
+    const existingBidIndex = existingBids.findIndex((bid: any) => bid.auctionId === parseInt(auctionId));
+    if (existingBidIndex >= 0) {
+      existingBids[existingBidIndex] = bidRecord;
+    } else {
+      existingBids.push(bidRecord);
+    }
+    
+    // 로컬 스토리지에 저장
+    localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(existingBids));
+    
     sendMessage("/app/auction/bid", { auctionId, amount });
     setCanBid(false);
   };
@@ -322,19 +396,11 @@ export default function BidPage() {
                     <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start max-w-inherit overflow-clip p-0 relative w-full">
                       
                       {/* 브레드크럼 */}
-                      <div className="relative shrink-0 w-full">
-                        <div className="relative size-full">
-                          <div className="[flex-flow:wrap] bg-clip-padding border-0 border-[transparent] border-solid box-border content-start flex gap-2 items-start justify-start p-[16px] relative w-full">
-                            <Link href="/" className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
-                              홈
-                            </Link>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">수집품</span>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">{getAuctionName(auction)}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <Breadcrumb 
+                        category={category}
+                        productName={getAuctionName(auction)}
+                        isBidPage={true}
+                      />
 
                       {/* 제목 */}
                       <div className="relative shrink-0 w-full">
