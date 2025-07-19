@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,6 +12,7 @@ import {
 import { getAuctionBidDetail } from "@/lib/api/auction";
 import { getCategoryById, Category } from "@/lib/api/category";
 import Breadcrumb from "@/components/auction/Breadcrumb";
+import UnifiedBidHistory from "@/components/auction/UnifiedBidHistory";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export default function BidPage() {
   const [bidCount, setBidCount] = useState(0);
   const [bidAmount, setBidAmount] = useState<string>("");
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'realtime' | 'history'>('realtime');
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const { subscribe, unsubscribe, sendMessage, isConnected, connect } = useWebSocket();
@@ -114,13 +116,19 @@ export default function BidPage() {
         setMessages((prev) => {
           const bidAmountValue = msg.currentBid || 0;
           if (prev.some((m) => m.text === `${bidAmountValue.toLocaleString()}원 입찰!`)) return prev;
-          return [...prev, { 
+          const newMessage = { 
             id: Date.now(), 
             sender: msg.nickname || "익명", 
             text: `${bidAmountValue.toLocaleString()}원 입찰!`, 
             isMe: msg.nickname === user.nickname,
             timestamp: new Date()
-          }];
+          };
+          const updatedMessages = [...prev, newMessage];
+          
+          // 실시간 입찰 내역을 localStorage에 저장
+          saveRealtimeBids(updatedMessages);
+          
+          return updatedMessages;
         });
         setAuction((prev: Auction | null) => {
           if (prev) {
@@ -157,6 +165,8 @@ export default function BidPage() {
         });
         setBidCount(prev => prev + 1);
         if (msg.nickname !== user.nickname) setCanBid(true);
+        // 입찰 성공 시 전체 입찰 내역 탭으로 자동 전환
+        setActiveTab('history');
       }
     }, user.userUUID);
     setSubscriptionId(subId);
@@ -266,6 +276,54 @@ export default function BidPage() {
       chatContainerRef.current.scrollTop = 0; // 최신 메시지가 위에 있으므로 맨 위로 스크롤
     }
   }, [messages]);
+
+  // 실시간 입찰 내역 저장 함수
+  const saveRealtimeBids = useCallback((messagesToSave: Message[]) => {
+    if (!auctionId || !user) return;
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    localStorage.setItem(sessionKey, JSON.stringify(messagesToSave));
+  }, [auctionId, user]);
+
+  // 실시간 입찰 내역 세션 복원
+  useEffect(() => {
+    if (!auctionId || !user) return;
+    
+    // 세션 키 생성 (사용자별, 경매별)
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    
+    // 페이지 로드 시 저장된 실시간 입찰 내역 복원
+    const savedMessages = localStorage.getItem(sessionKey);
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        // timestamp를 Date 객체로 변환
+        const restoredMessages = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(restoredMessages);
+        setBidCount(restoredMessages.length);
+        console.log("[BidPage] 실시간 입찰 내역 복원 완료:", restoredMessages.length);
+      } catch (err) {
+        console.error("[BidPage] 실시간 입찰 내역 복원 실패:", err);
+      }
+    }
+  }, [auctionId, user]);
+
+  // 페이지 언로드 시 실시간 입찰 내역 저장
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveRealtimeBids(messages);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // 컴포넌트 언마운트 시에도 저장
+      saveRealtimeBids(messages);
+    };
+  }, [messages, saveRealtimeBids]);
 
   useEffect(() => {
     if (user && auctionId) {
@@ -597,80 +655,111 @@ export default function BidPage() {
                                           </div>
                   </div>
 
-                  {/* 오른쪽: 실시간 입찰 내역 */}
+                  {/* 오른쪽: 입찰 내역 (탭 형태) */}
                   <div className="basis-0 grow max-w-[700px] min-h-px min-w-px relative shrink-0 pl-4">
                     <div className="bg-white rounded-lg shadow-sm border border-[#e5e8eb] h-full flex flex-col">
                       
-                      {/* 실시간 입찰 내역 헤더 */}
-                      <div className="p-6 border-b border-[#e5e8eb]">
-                        <h2 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[20px] leading-[25px]">
-                          실시간 입찰 내역
-                        </h2>
-                        <p className="text-[#5c738a] text-[14px] mt-1">
-                          총 {messages.length}건의 입찰
-                        </p>
+                      {/* 탭 헤더 */}
+                      <div className="flex border-b border-[#e5e8eb]">
+                        <button
+                          onClick={() => setActiveTab('realtime')}
+                          className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+                            activeTab === 'realtime'
+                              ? 'text-[#0f1417] border-b-2 border-[#0f1417]'
+                              : 'text-[#5c738a] hover:text-[#0f1417]'
+                          }`}
+                        >
+                          실시간 입찰 ({messages.length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('history')}
+                          className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+                            activeTab === 'history'
+                              ? 'text-[#0f1417] border-b-2 border-[#0f1417]'
+                              : 'text-[#5c738a] hover:text-[#0f1417]'
+                          }`}
+                        >
+                          전체 입찰 내역
+                        </button>
                       </div>
 
-                      {/* 실시간 입찰 내역 목록 */}
-                      <div className="flex-1 p-4 min-h-0">
-                        <div 
-                          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                          ref={chatContainerRef}
-                        >
-                          {messages.length > 0 ? (
-                            <div className="space-y-3">
-                              {messages
-                                .slice()
-                                .reverse()
-                                .map((message) => (
-                                  <div
-                                    key={message.id}
-                                    className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-200 ${
-                                      message.isMe
-                                        ? "bg-[#dbe8f2] border-l-4 border-[#0f1417] ml-4"
-                                        : "bg-gray-50 border-l-4 border-[#5c738a] mr-4"
-                                    }`}
-                                  >
-                                    <div className="flex-1">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-base font-bold ${
-                                          message.isMe ? "text-[#0f1417]" : "text-[#5c738a]"
-                                        }`}>
-                                          {message.isMe ? "나" : message.sender}
-                                        </span>
-                                        <span className="text-xs text-[#5c738a] bg-white px-2 py-1 rounded-full">
-                                          {message.timestamp.toLocaleTimeString([], {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit'
-                                          })}
-                                        </span>
+                      {/* 탭 컨텐츠 */}
+                      <div className="flex-1 min-h-0">
+                        {activeTab === 'realtime' ? (
+                          /* 실시간 입찰 내역 */
+                          <div className="h-full flex flex-col">
+                            <div className="p-4 border-b border-[#e5e8eb]">
+                              <p className="text-[#5c738a] text-[14px]">
+                                실시간으로 진행되는 입찰을 확인하세요
+                              </p>
+                            </div>
+                            <div className="flex-1 p-4 min-h-0">
+                              <div 
+                                className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                                ref={chatContainerRef}
+                              >
+                                {messages.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {messages
+                                      .slice()
+                                      .reverse()
+                                      .map((message) => (
+                                        <div
+                                          key={message.id}
+                                          className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-200 ${
+                                            message.isMe
+                                              ? "bg-[#dbe8f2] border-l-4 border-[#0f1417] ml-4"
+                                              : "bg-gray-50 border-l-4 border-[#5c738a] mr-4"
+                                          }`}
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className={`text-base font-bold ${
+                                                message.isMe ? "text-[#0f1417]" : "text-[#5c738a]"
+                                              }`}>
+                                                {message.isMe ? "나" : message.sender}
+                                              </span>
+                                              <span className="text-xs text-[#5c738a] bg-white px-2 py-1 rounded-full">
+                                                {message.timestamp.toLocaleTimeString([], {
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit'
+                                                })}
+                                              </span>
+                                            </div>
+                                            <div className="text-base font-semibold text-[#0f1417]">
+                                              {message.text}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center">
+                                    <div className="text-center">
+                                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
+                                        </svg>
                                       </div>
-                                      <div className="text-base font-semibold text-[#0f1417]">
-                                        {message.text}
-                                      </div>
+                                      <p className="text-[#5c738a] text-base">
+                                        아직 실시간 입찰이 없습니다.
+                                      </p>
+                                      <p className="text-[#5c738a] text-sm mt-1">
+                                        첫 번째 입찰자가 되어보세요!
+                                      </p>
                                     </div>
                                   </div>
-                                ))}
-                            </div>
-                          ) : (
-                            <div className="h-full flex items-center justify-center">
-                              <div className="text-center">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
-                                  </svg>
-                                </div>
-                                <p className="text-[#5c738a] text-base">
-                                  아직 입찰 내역이 없습니다.
-                                </p>
-                                <p className="text-[#5c738a] text-sm mt-1">
-                                  첫 번째 입찰자가 되어보세요!
-                                </p>
+                                )}
                               </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          /* 전체 입찰 내역 */
+                          <div className="h-full">
+                            <UnifiedBidHistory auctionId={auctionId} maxItems={20} />
+                          </div>
+                        )}
                       </div>
 
                     </div>
