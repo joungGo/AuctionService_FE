@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import dayjs from "dayjs";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -9,7 +9,8 @@ import { getApiBaseUrl } from "@/lib/config";
 import { getAllAuctions } from "@/lib/api/auction";
 import CategoryFilter from "@/components/auction/CategoryFilter";
 
-export default function AllAuctionsPage() {
+// useSearchParams를 사용하는 컴포넌트를 분리
+function AllAuctionsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [auctions, setAuctions] = useState<any[]>([]);
@@ -206,15 +207,31 @@ export default function AllAuctionsPage() {
             emptyMessage="예정된 경매가 없습니다."
           />
 
-          {/* 인기 상품 섹션 */}
+          {/* 인기 경매 섹션 */}
           <PopularAuctionSection
-            title="인기 상품"
+            title="인기 경매"
             auctions={popularAuctions}
-            emptyMessage="인기 상품이 없습니다."
+            emptyMessage="인기 경매가 없습니다."
           />
         </div>
       </div>
     </div>
+  );
+}
+
+// 메인 컴포넌트를 Suspense로 감싸기
+export default function AllAuctionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <p className="text-gray-600">페이지를 불러오는 중...</p>
+        </div>
+      </div>
+    }>
+      <AllAuctionsContent />
+    </Suspense>
   );
 }
 
