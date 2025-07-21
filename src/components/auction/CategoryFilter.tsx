@@ -9,7 +9,7 @@ interface CategoryFilterProps {
 }
 
 // 카테고리별 아이콘 매핑
-const getCategoryIcon = (categoryName: string) => {
+export const getCategoryIcon = (categoryName: string) => {
   switch (categoryName) {
     case '수집품':
       return '🏛️';

@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/config";
 import { getAllAuctions } from "@/lib/api/auction";
-import CategoryFilter from "@/components/auction/CategoryFilter";
+import CategoryFilter, { getCategoryIcon } from "@/components/auction/CategoryFilter";
 
 // useSearchParams를 사용하는 컴포넌트를 분리
 function AllAuctionsContent() {

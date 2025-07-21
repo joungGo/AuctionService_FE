@@ -54,6 +54,8 @@ export default function AuctionPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const [isAuctionOngoing, setIsAuctionOngoing] = useState(false);
+  const [isAuctionScheduled, setIsAuctionScheduled] = useState(false);
 
   // Toast 표시 함수
   const showToastMessage = (message: string) => {
@@ -139,6 +141,20 @@ export default function AuctionPage() {
     const interval = setInterval(() => calculateTimeLeft(auction.endTime), 1000);
     return () => clearInterval(interval);
   }, [auction?.endTime]);
+
+  useEffect(() => {
+    if (!auction?.startTime || !auction?.endTime) return;
+    const checkAuctionStatus = () => {
+      const now = new Date().getTime();
+      const start = new Date(auction.startTime).getTime();
+      const end = new Date(auction.endTime).getTime();
+      setIsAuctionOngoing(now >= start && now < end);
+      setIsAuctionScheduled(now < start);
+    };
+    checkAuctionStatus();
+    const interval = setInterval(checkAuctionStatus, 1000);
+    return () => clearInterval(interval);
+  }, [auction?.startTime, auction?.endTime]);
 
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
@@ -302,20 +318,14 @@ export default function AuctionPage() {
                       {/* 입찰하기 버튼 */}
                       <div className="relative shrink-0 w-full">
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row items-start justify-start px-4 py-3 relative w-full">
-                          <div 
-                            className="bg-[#dbe8f2] h-10 max-w-[480px] min-w-[84px] relative rounded-xl shrink-0 cursor-pointer hover:bg-[#c8ddf0] transition-colors"
-                            onClick={handleBidClick}
+                          <button
+                            className={`bg-[#dbe8f2] h-10 max-w-[480px] min-w-[84px] relative rounded-xl shrink-0 transition-colors px-4 flex items-center justify-center font-bold text-[#0f1417] text-[14px] ${isAuctionOngoing ? 'cursor-pointer hover:bg-[#c8ddf0]' : 'cursor-not-allowed opacity-60'}`}
+                            onClick={isAuctionOngoing ? handleBidClick : undefined}
+                            disabled={!isAuctionOngoing}
+                            title={isAuctionScheduled ? '경매 시작 전에는 입찰할 수 없습니다.' : (timeLeft === '경매 종료' ? '이미 종료된 경매입니다.' : '')}
                           >
-                            <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row h-10 items-center justify-center max-w-inherit min-w-inherit overflow-clip px-4 py-0 relative">
-                              <div className="relative shrink-0">
-                                <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-center justify-start overflow-clip p-0 relative">
-                                  <div className="css-cn0mda font-['Work_Sans:Bold',_'Noto_Sans_KR:Bold',_sans-serif] font-bold leading-[0] overflow-ellipsis overflow-hidden relative shrink-0 text-[#0f1417] text-[14px] text-center text-nowrap w-full">
-                                    <p className="block leading-[21px] overflow-inherit whitespace-pre">입찰하기</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            <span className="block leading-[21px] overflow-inherit whitespace-pre">입찰하기</span>
+                          </button>
                         </div>
                       </div>
 
