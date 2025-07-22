@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getApiBaseUrl } from "@/lib/config";
-import { getUserBidHistory } from "@/lib/api/auction";
+import { getMyAuctionHistory, getMyFavorites, addFavorite, removeFavorite } from '@/lib/api/auction';
 
 interface User {
   nickname: string;
@@ -21,16 +21,17 @@ interface Auction {
   imageUrl?: string;
 }
 
-// 입찰 내역 인터페이스 추가
-interface BidHistory {
+// 입찰 내역 인터페이스 수정 (API 응답에 맞게)
+interface AuctionHistory {
   auctionId: number;
   productName: string;
-  description?: string;
-  myBid: number;
-  currentBid: number;
-  bidTime: string;
   imageUrl?: string;
-  status: 'active' | 'won' | 'lost'; // 진행 중, 낙찰, 패찰
+  status: '진행중' | '낙찰' | '패찰';
+  myLastBidAmount?: number;
+  myHighestBidAmount?: number;
+  auctionHighestBidAmount?: number;
+  endTime?: string;
+  isWinner?: boolean;
 }
 
 // 관심 목록 인터페이스 추가
@@ -43,16 +44,25 @@ interface WishlistItem {
   endTime: string;
 }
 
+// 관심 목록 인터페이스 수정 (API 응답에 맞게)
+interface Favorite {
+  favoriteId: number;
+  auctionId: number;
+  productName: string;
+  imageUrl?: string;
+  createdAt?: string;
+}
+
 export default function MyPage() {
   const { userUUID } = useParams();
   const router = useRouter();
   const { user: authUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
+  const [wishlist, setWishlist] = useState<Favorite[]>([]);
   const [activeSection, setActiveSection] = useState<'won' | 'bids' | 'wishlist' | 'settings'>('won');
-  const [activeBidTab, setActiveBidTab] = useState<'active' | 'won' | 'lost'>('active');
+  const [activeBidTab, setActiveBidTab] = useState<'진행중' | '낙찰' | '패찰'>('진행중');
   const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
@@ -87,52 +97,52 @@ export default function MyPage() {
       .then((data) => data?.data && Array.isArray(data.data) ? setAuctions(data.data) : [])
       .catch(console.error);
 
-    // 입찰 내역 API 연결
-    getUserBidHistory(uuid)
+    // 입찰한 경매 목록 API 연동
+    getMyAuctionHistory()
       .then((data) => {
-        let apiBids: BidHistory[] = [];
+        console.log('getMyAuctionHistory 응답:', data);
         if (data?.data && Array.isArray(data.data)) {
-          apiBids = data.data;
+          setAuctionHistory(data.data);
+        } else {
+          setAuctionHistory([]);
         }
-        
-        // 로컬 스토리지에서 입찰 내역 가져오기
-        const localBids = JSON.parse(localStorage.getItem(`bidHistory_${uuid}`) || '[]');
-        
-        // API 데이터와 로컬 데이터 병합
-        const mergedBids = [...apiBids];
-        
-        // 로컬 데이터 중 API에 없는 것만 추가
-        localBids.forEach((localBid: any) => {
-          const exists = mergedBids.some(apiBid => apiBid.auctionId === localBid.auctionId);
-          if (!exists) {
-            mergedBids.push(localBid);
-          }
-        });
-        
-        setBidHistory(mergedBids);
       })
       .catch((error) => {
-        console.error("입찰 내역 조회 실패:", error);
-        
-        // API 실패 시 로컬 스토리지만 사용
-        const localBids = JSON.parse(localStorage.getItem(`bidHistory_${uuid}`) || '[]');
-        setBidHistory(localBids);
+        console.error('입찰한 경매 목록 조회 실패:', error);
+        setAuctionHistory([]);
       });
 
-    // TODO: 관심 목록 API 연결 (현재는 샘플 데이터)
-    // fetch(`${API_BASE_URL}/auctions/${uuid}/wishlist`, {
-    //   headers,
-    //   credentials: 'include'
-    // })
-    // .then((res) => res.ok ? res.json() : null)
-    // .then((data) => data?.data && Array.isArray(data.data) ? setWishlist(data.data) : [])
-    // .catch(console.error);
-
-    // 관심 목록 샘플 데이터 - 모두 제거
-    setWishlist([]);
+    // 관심 목록 API 연동
+    getMyFavorites()
+      .then((data) => {
+        if (data?.data && Array.isArray(data.data)) {
+          setWishlist(data.data);
+        } else {
+          setWishlist([]);
+        }
+      })
+      .catch((error) => {
+        console.error('관심 목록 조회 실패:', error);
+        setWishlist([]);
+      });
   }, [userUUID, authUser, router]);
 
-  const filteredBidHistory = bidHistory.filter(bid => bid.status === activeBidTab);
+  // 관심 경매 해제 핸들러
+  const handleRemoveFavorite = async (auctionId: number) => {
+    try {
+      await removeFavorite(auctionId);
+      // 해제 후 목록 갱신
+      const data = await getMyFavorites();
+      setWishlist(data?.data || []);
+    } catch (error) {
+      alert('찜 해제에 실패했습니다.');
+    }
+  };
+
+  // 상태별 필터링
+  const filteredAuctionHistory = auctionHistory.filter(
+    (auction) => auction.status === activeBidTab
+  );
 
   return (
     <div className="bg-white min-h-screen flex">
@@ -314,7 +324,42 @@ export default function MyPage() {
           <div>
             <h2 className="font-bold text-[32px] leading-[40px] text-[#0d141c] mb-6">관심 목록</h2>
             <div className="space-y-0">
-              <p className="text-[#4a739c] mt-4 text-center">관심 목록이 비어있습니다.</p>
+              {wishlist.length > 0 ? (
+                wishlist.map((item) => (
+                  <div key={item.favoriteId} className="bg-[#f7fafc] min-h-[72px] flex items-center">
+                    <div className="flex items-center gap-4 px-4 py-2 w-full">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                        <img
+                          src={item.imageUrl || "/default-image.jpg"}
+                          alt={item.productName}
+                          className="w-full h-full object-cover"
+                          onError={e => {
+                            if (e.currentTarget.src.endsWith('/default-image.jpg')) return;
+                            e.currentTarget.src = '/default-image.jpg';
+                          }}
+                        />
+                      </div>
+                      <div className="flex flex-col justify-center flex-1">
+                        <p className="font-medium text-[16px] leading-[24px] text-[#0d141c] whitespace-nowrap mb-1">
+                          {item.productName}
+                        </p>
+                        <p className="text-[12px] text-[#4a739c] mt-1">
+                          찜 등록일: {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
+                        </p>
+                      </div>
+                      <button
+                        className="ml-4 text-red-500 hover:text-red-700 text-xl"
+                        title="찜 해제"
+                        onClick={() => handleRemoveFavorite(item.auctionId)}
+                      >
+                        ♥
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[#4a739c] mt-4 text-center">관심 목록이 비어있습니다.</p>
+              )}
             </div>
           </div>
         )}
@@ -360,20 +405,15 @@ export default function MyPage() {
         {activeSection === 'bids' && (
           <div>
             <h2 className="font-bold text-[32px] leading-[40px] text-[#0d141c] mb-6">입찰 내역</h2>
-            
             {/* 입찰 내역 탭 메뉴 */}
             <div className="border-b border-[#d4dbe3] mb-4">
               <div className="flex gap-8">
-                {[
-                  { key: 'active', label: '진행중' },
-                  { key: 'won', label: '낙찰' },
-                  { key: 'lost', label: '패찰' }
-                ].map(({ key, label }) => (
+                {['진행중', '낙찰', '패찰'].map((label) => (
                   <button
-                    key={key}
-                    onClick={() => setActiveBidTab(key as 'active' | 'won' | 'lost')}
+                    key={label}
+                    onClick={() => setActiveBidTab(label as '진행중' | '낙찰' | '패찰')}
                     className={`px-0 py-4 text-[14px] font-bold leading-[21px] border-b-3 ${
-                      activeBidTab === key
+                      activeBidTab === label
                         ? 'text-[#0d141c] border-[#e5e8eb]'
                         : 'text-[#4a739c] border-transparent hover:border-[#e5e8eb]'
                     }`}
@@ -383,38 +423,37 @@ export default function MyPage() {
                 ))}
               </div>
             </div>
-
             {/* 입찰 내역 목록 */}
             <div className="space-y-0">
-              {filteredBidHistory.length > 0 ? (
-                filteredBidHistory.map((bid) => (
-                  <div key={bid.auctionId} className="bg-[#f7fafc] min-h-[72px] flex items-center">
+              {filteredAuctionHistory.length > 0 ? (
+                filteredAuctionHistory.map((auction) => (
+                  <div key={auction.auctionId} className="bg-[#f7fafc] min-h-[72px] flex items-center">
                     <div className="flex items-center gap-4 px-4 py-2 w-full">
                       <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                         <img
-                          src={bid.imageUrl || "/default-image.jpg"}
-                          alt={bid.productName}
+                          src={auction.imageUrl || "/default-image.jpg"}
+                          alt={auction.productName}
                           className="w-full h-full object-cover"
                           onError={(e) => (e.currentTarget.src = "/default-image.jpg")}
                         />
                       </div>
                       <div className="flex flex-col justify-center flex-1">
                         <p className="font-medium text-[16px] leading-[24px] text-[#0d141c] whitespace-nowrap mb-1">
-                          {bid.productName}
+                          {auction.productName}
                         </p>
                         <div className="flex gap-4 text-[14px] leading-[21px] text-[#4a739c]">
-                          <span>내 입찰가: ₩{bid.myBid.toLocaleString()}</span>
-                          <span>현재가: ₩{bid.currentBid.toLocaleString()}</span>
+                          <span>내 마지막 입찰가: ₩{auction.myLastBidAmount?.toLocaleString() ?? '-'}</span>
+                          <span>내 최고 입찰가: ₩{auction.myHighestBidAmount?.toLocaleString() ?? '-'}</span>
+                          <span>경매 최고가: ₩{auction.auctionHighestBidAmount?.toLocaleString() ?? '-'}</span>
                           <span className={`font-semibold ${
-                            bid.status === 'won' ? 'text-green-600' : 
-                            bid.status === 'lost' ? 'text-red-600' : 'text-blue-600'
+                            auction.status === '낙찰' ? 'text-green-600' : 
+                            auction.status === '패찰' ? 'text-red-600' : 'text-blue-600'
                           }`}>
-                            {bid.status === 'won' ? '낙찰' : 
-                             bid.status === 'lost' ? '패찰' : '진행중'}
+                            {auction.status}
                           </span>
                         </div>
                         <p className="text-[12px] text-[#4a739c] mt-1">
-                          입찰 시간: {new Date(bid.bidTime).toLocaleString()}
+                          종료 시간: {auction.endTime ? new Date(auction.endTime).toLocaleString() : '-'}
                         </p>
                       </div>
                     </div>
@@ -422,8 +461,8 @@ export default function MyPage() {
                 ))
               ) : (
                 <p className="text-[#4a739c] mt-4 text-center">
-                  {activeBidTab === 'active' ? '진행중인 입찰이 없습니다.' : 
-                   activeBidTab === 'won' ? '낙찰한 입찰이 없습니다.' : '패찰한 입찰이 없습니다.'}
+                  {activeBidTab === '진행중' ? '진행중인 입찰이 없습니다.' : 
+                   activeBidTab === '낙찰' ? '낙찰한 입찰이 없습니다.' : '패찰한 입찰이 없습니다.'}
                 </p>
               )}
             </div>

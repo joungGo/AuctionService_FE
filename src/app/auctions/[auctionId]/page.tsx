@@ -16,11 +16,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/context/AuthContext";
 import { useWebSocket } from "@/app/context/WebSocketContext";
+import { getMyFavorites, addFavorite, removeFavorite } from '@/lib/api/auction';
+import { Tooltip } from '@/components/ui/tooltip';
 
-interface AuctionEndMessage { 
-  auctionId: number; 
-  winnerNickname: string; 
-  winningBid: number; 
+// 관심목록(찜) 인터페이스
+interface Favorite {
+  favoriteId: number;
+  auctionId: number;
 }
 
 // 실제 API 응답 구조에 맞게 수정
@@ -49,13 +51,15 @@ export default function AuctionPage() {
   const [category, setCategory] = useState<Category | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [bidCount, setBidCount] = useState<number>(0);
-  const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
+  const [auctionEndData, setAuctionEndData] = useState<any | null>(null); // AuctionEndMessage 대신 any로 변경
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
   const [isAuctionOngoing, setIsAuctionOngoing] = useState(false);
   const [isAuctionScheduled, setIsAuctionScheduled] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteId, setFavoriteId] = useState<number | null>(null);
 
   // Toast 표시 함수
   const showToastMessage = (message: string) => {
@@ -156,6 +160,38 @@ export default function AuctionPage() {
     return () => clearInterval(interval);
   }, [auction?.startTime, auction?.endTime]);
 
+  // 경매 상세 진입 시 내 관심목록에 있는지 확인
+  useEffect(() => {
+    if (!user || !auctionId) return;
+    getMyFavorites().then((data) => {
+      if (data?.data && Array.isArray(data.data)) {
+        const found = data.data.find((fav: Favorite) => fav.auctionId === Number(auctionId));
+        setIsFavorite(!!found);
+        setFavoriteId(found ? found.favoriteId : null);
+      }
+    });
+  }, [user, auctionId]);
+
+  // 찜 등록/해제 핸들러
+  const handleToggleFavorite = async () => {
+    if (!user || !auctionId) return;
+    try {
+      if (isFavorite) {
+        await removeFavorite(Number(auctionId));
+        setIsFavorite(false);
+        setFavoriteId(null);
+      } else {
+        const res = await addFavorite(Number(auctionId));
+        if (res?.data) {
+          setIsFavorite(true);
+          setFavoriteId(res.data.favoriteId);
+        }
+      }
+    } catch (e) {
+      alert('찜 처리에 실패했습니다.');
+    }
+  };
+
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
     const now = new Date().getTime();
@@ -239,6 +275,16 @@ export default function AuctionPage() {
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start pb-3 pt-5 px-4 relative w-full">
                           <div className="flex items-center gap-3 css-1bkkkk font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[0] relative shrink-0 text-[#0f1417] text-[28px] text-left w-full">
                             <span className="block leading-[35px]">{getAuctionName(auction)}</span>
+                            {/* ♥ 찜 버튼 */}
+                            <Tooltip content={isFavorite ? '찜 해제' : '찜하기'}>
+                              <button
+                                className={`ml-2 text-2xl transition-all duration-200 transform hover:scale-125 ${isFavorite ? 'text-red-500' : 'text-gray-400'} hover:text-red-600`}
+                                title={isFavorite ? '찜 해제' : '찜 등록'}
+                                onClick={handleToggleFavorite}
+                              >
+                                {isFavorite ? '♥' : '♡'}
+                              </button>
+                            </Tooltip>
                             <span className="flex items-center bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
                               👥 {participantCount !== null ? `${participantCount}명` : '-'}
                             </span>
