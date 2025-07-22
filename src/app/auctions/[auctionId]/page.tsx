@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAuctionDetail } from "@/lib/api/auction";
+import { getCategoryById, Category } from "@/lib/api/category";
+import Breadcrumb from "@/components/auction/Breadcrumb";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,8 @@ interface Auction {
   minBid: number; 
   endTime: string;
   startTime: string;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 export default function AuctionPage() {
@@ -42,6 +46,7 @@ export default function AuctionPage() {
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   const [auction, setAuction] = useState<Auction | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [bidCount, setBidCount] = useState<number>(0);
   const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
@@ -49,6 +54,8 @@ export default function AuctionPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const [isAuctionOngoing, setIsAuctionOngoing] = useState(false);
+  const [isAuctionScheduled, setIsAuctionScheduled] = useState(false);
 
   // Toast 표시 함수
   const showToastMessage = (message: string) => {
@@ -105,7 +112,7 @@ export default function AuctionPage() {
     };
   }, [user, auctionId, isConnected, subscribe, unsubscribe]);
 
-  // 경매 상세 조회
+  // 경매 상세 조회 및 카테고리 정보 조회
   useEffect(() => {
     (async () => {
       const data = await getAuctionDetail(auctionId);
@@ -114,6 +121,16 @@ export default function AuctionPage() {
         console.log("[AuctionPage] 경매 데이터:", data.data);
         setAuction(data.data);
         calculateTimeLeft(data.data.endTime);
+        
+        // 카테고리 정보 조회
+        if (data.data.categoryId) {
+          try {
+            const categoryData = await getCategoryById(data.data.categoryId);
+            setCategory(categoryData.data);
+          } catch (err) {
+            console.error("[AuctionPage] 카테고리 조회 실패:", err);
+          }
+        }
       }
     })();
   }, [auctionId]);
@@ -124,6 +141,20 @@ export default function AuctionPage() {
     const interval = setInterval(() => calculateTimeLeft(auction.endTime), 1000);
     return () => clearInterval(interval);
   }, [auction?.endTime]);
+
+  useEffect(() => {
+    if (!auction?.startTime || !auction?.endTime) return;
+    const checkAuctionStatus = () => {
+      const now = new Date().getTime();
+      const start = new Date(auction.startTime).getTime();
+      const end = new Date(auction.endTime).getTime();
+      setIsAuctionOngoing(now >= start && now < end);
+      setIsAuctionScheduled(now < start);
+    };
+    checkAuctionStatus();
+    const interval = setInterval(checkAuctionStatus, 1000);
+    return () => clearInterval(interval);
+  }, [auction?.startTime, auction?.endTime]);
 
   const calculateTimeLeft = (endTime: string) => {
     const end = new Date(endTime).getTime();
@@ -198,35 +229,10 @@ export default function AuctionPage() {
                     <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start max-w-inherit overflow-clip p-0 relative w-full">
                       
                       {/* 브레드크럼 네비게이션 */}
-                      <div className="relative shrink-0 w-full">
-                        <div className="[flex-flow:wrap] bg-clip-padding border-0 border-[transparent] border-solid box-border content-start flex gap-2 items-start justify-start p-[16px] relative w-full">
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre cursor-pointer hover:text-[#0f1417]" onClick={() => router.push("/")}>홈</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">/</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">수집품</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-ay0434 font-['Work_Sans:Medium',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#5c738a] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">/</p>
-                            </div>
-                          </div>
-                          <div className="relative shrink-0">
-                            <div className="css-1bkkkk font-['Work_Sans:Medium',_'Noto_Sans_KR:Regular',_sans-serif] font-medium leading-[0] relative shrink-0 text-[#0f1417] text-[16px] text-left text-nowrap w-full">
-                              <p className="block leading-[24px] whitespace-pre">{getAuctionName(auction)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <Breadcrumb 
+                        category={category}
+                        productName={getAuctionName(auction)}
+                      />
 
                       {/* 상품 제목 */}
                       <div className="relative shrink-0 w-full">
@@ -312,20 +318,14 @@ export default function AuctionPage() {
                       {/* 입찰하기 버튼 */}
                       <div className="relative shrink-0 w-full">
                         <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row items-start justify-start px-4 py-3 relative w-full">
-                          <div 
-                            className="bg-[#dbe8f2] h-10 max-w-[480px] min-w-[84px] relative rounded-xl shrink-0 cursor-pointer hover:bg-[#c8ddf0] transition-colors"
-                            onClick={handleBidClick}
+                          <button
+                            className={`bg-[#dbe8f2] h-10 max-w-[480px] min-w-[84px] relative rounded-xl shrink-0 transition-colors px-4 flex items-center justify-center font-bold text-[#0f1417] text-[14px] ${isAuctionOngoing ? 'cursor-pointer hover:bg-[#c8ddf0]' : 'cursor-not-allowed opacity-60'}`}
+                            onClick={isAuctionOngoing ? handleBidClick : undefined}
+                            disabled={!isAuctionOngoing}
+                            title={isAuctionScheduled ? '경매 시작 전에는 입찰할 수 없습니다.' : (timeLeft === '경매 종료' ? '이미 종료된 경매입니다.' : '')}
                           >
-                            <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row h-10 items-center justify-center max-w-inherit min-w-inherit overflow-clip px-4 py-0 relative">
-                              <div className="relative shrink-0">
-                                <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-center justify-start overflow-clip p-0 relative">
-                                  <div className="css-cn0mda font-['Work_Sans:Bold',_'Noto_Sans_KR:Bold',_sans-serif] font-bold leading-[0] overflow-ellipsis overflow-hidden relative shrink-0 text-[#0f1417] text-[14px] text-center text-nowrap w-full">
-                                    <p className="block leading-[21px] overflow-inherit whitespace-pre">입찰하기</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            <span className="block leading-[21px] overflow-inherit whitespace-pre">입찰하기</span>
+                          </button>
                         </div>
                       </div>
 

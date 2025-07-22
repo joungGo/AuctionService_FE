@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,7 +9,10 @@ import {
   disconnectStomp,
   sendAuctionMessage,
 } from "@/lib/socket";
-import { getAuctionDetail } from "@/lib/api/auction";
+import { getAuctionBidDetail } from "@/lib/api/auction";
+import { getCategoryById, Category } from "@/lib/api/category";
+import Breadcrumb from "@/components/auction/Breadcrumb";
+import UnifiedBidHistory from "@/components/auction/UnifiedBidHistory";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +33,16 @@ interface Auction {
   auctionId: number;
   productName: string; 
   imageUrl: string; 
-  description: string; 
+  description?: string; 
   startPrice: number; 
   currentBid: number; 
   minBid: number; 
   endTime: string;
   startTime: string;
+  highestBidderUUID?: string;
+  highestBidderNickname?: string;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 export default function BidPage() {
@@ -44,6 +51,7 @@ export default function BidPage() {
   const { user, isLoading } = useAuth();
 
   const [auction, setAuction] = useState<Auction | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [auctionEndData, setAuctionEndData] = useState<AuctionEndMessage | null>(null);
@@ -52,6 +60,7 @@ export default function BidPage() {
   const [bidCount, setBidCount] = useState(0);
   const [bidAmount, setBidAmount] = useState<string>("");
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'realtime' | 'history'>('realtime');
 
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const { subscribe, unsubscribe, sendMessage, isConnected, connect } = useWebSocket();
@@ -78,6 +87,22 @@ export default function BidPage() {
       if (msg.winnerNickname && msg.winningBid !== undefined) {
         setAuctionEndData(msg);
         setShowEndDialog(true);
+        
+        // 로컬 스토리지의 입찰 내역 상태 업데이트
+        if (user) {
+          const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+          const updatedBids = existingBids.map((bid: any) => {
+            if (bid.auctionId === parseInt(auctionId)) {
+              return {
+                ...bid,
+                currentBid: msg.winningBid,
+                status: msg.winnerNickname === user.nickname ? 'won' : 'lost'
+              };
+            }
+            return bid;
+          });
+          localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(updatedBids));
+        }
         return;
       }
       // 입찰 실패 메시지 처리
@@ -91,27 +116,57 @@ export default function BidPage() {
         setMessages((prev) => {
           const bidAmountValue = msg.currentBid || 0;
           if (prev.some((m) => m.text === `${bidAmountValue.toLocaleString()}원 입찰!`)) return prev;
-          return [...prev, { 
+          const newMessage = { 
             id: Date.now(), 
             sender: msg.nickname || "익명", 
             text: `${bidAmountValue.toLocaleString()}원 입찰!`, 
             isMe: msg.nickname === user.nickname,
             timestamp: new Date()
-          }];
+          };
+          const updatedMessages = [...prev, newMessage];
+          
+          // 실시간 입찰 내역을 localStorage에 저장
+          saveRealtimeBids(updatedMessages);
+          
+          return updatedMessages;
         });
         setAuction((prev: Auction | null) => {
           if (prev) {
-            const updatedAuction = { ...prev, currentBid: msg.currentBid };
+            // 실시간 최고 입찰자 정보 업데이트
+            const updatedAuction = { 
+              ...prev, 
+              currentBid: msg.currentBid,
+              highestBidderUUID: msg.userUUID,  // 실시간 업데이트
+              highestBidderNickname: msg.nickname
+            };
             const currentBid = msg.currentBid || updatedAuction.startPrice || 0;
             const minBid = updatedAuction.minBid || 1000;
             const nextBid = currentBid + minBid;
             setBidAmount(nextBid.toString());
+            
+            // 로컬 스토리지의 입찰 내역 현재가 업데이트
+            if (user) {
+              const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+              const updatedBids = existingBids.map((bid: any) => {
+                if (bid.auctionId === parseInt(auctionId)) {
+                  return {
+                    ...bid,
+                    currentBid: msg.currentBid
+                  };
+                }
+                return bid;
+              });
+              localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(updatedBids));
+            }
+            
             return updatedAuction;
           }
           return prev;
         });
         setBidCount(prev => prev + 1);
         if (msg.nickname !== user.nickname) setCanBid(true);
+        // 입찰 성공 시 전체 입찰 내역 탭으로 자동 전환
+        setActiveTab('history');
       }
     }, user.userUUID);
     setSubscriptionId(subId);
@@ -182,19 +237,28 @@ export default function BidPage() {
     };
   }, [user, auctionId, isConnected, sendMessage, router]);
 
-  // 기존 경매 상세 조회 로직 유지
+  // 입찰 페이지 전용 상세 정보 조회 및 카테고리 정보 조회
   useEffect(() => {
     (async () => {
-      const data = await getAuctionDetail(auctionId);
-      if (data?.data) {
-        setAuction(data.data);
-        calculateTimeLeft(data.data.endTime);
-        
+      const data = await getAuctionBidDetail(auctionId);
+      if (data) {
+        setAuction(data);
+        calculateTimeLeft(data.endTime);
         // 초기 입찰가 설정
-        const currentBid = data.data.currentBid || data.data.startPrice || 0;
-        const minBid = data.data.minBid || 1000;
+        const currentBid = data.currentBid || data.startPrice || 0;
+        const minBid = data.minBid || 1000;
         const nextBid = currentBid + minBid;
         setBidAmount(nextBid.toString());
+        
+        // 카테고리 정보 조회
+        if (data.categoryId) {
+          try {
+            const categoryData = await getCategoryById(data.categoryId);
+            setCategory(categoryData.data);
+          } catch (err) {
+            console.error("[BidPage] 카테고리 조회 실패:", err);
+          }
+        }
       }
     })();
   }, [auctionId]);
@@ -212,6 +276,66 @@ export default function BidPage() {
       chatContainerRef.current.scrollTop = 0; // 최신 메시지가 위에 있으므로 맨 위로 스크롤
     }
   }, [messages]);
+
+  // 실시간 입찰 내역 저장 함수
+  const saveRealtimeBids = useCallback((messagesToSave: Message[]) => {
+    if (!auctionId || !user) return;
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    sessionStorage.setItem(sessionKey, JSON.stringify(messagesToSave));
+  }, [auctionId, user]);
+
+  // 실시간 입찰 내역 세션 복원
+  useEffect(() => {
+    if (!auctionId || !user) return;
+    
+    // 세션 키 생성 (사용자별, 경매별)
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    
+    // 페이지 로드 시 저장된 실시간 입찰 내역 복원
+    const savedMessages = sessionStorage.getItem(sessionKey);
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages);
+        // timestamp를 Date 객체로 변환
+        const restoredMessages = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(restoredMessages);
+        setBidCount(restoredMessages.length);
+        console.log("[BidPage] 실시간 입찰 내역 복원 완료:", restoredMessages.length);
+      } catch (err) {
+        console.error("[BidPage] 실시간 입찰 내역 복원 실패:", err);
+      }
+    }
+  }, [auctionId, user]);
+
+  // 실시간 입찰 내역 삭제 함수
+  const clearRealtimeBids = useCallback(() => {
+    if (!auctionId || !user) return;
+    const sessionKey = `realtimeBids_${user.userUUID}_${auctionId}`;
+    sessionStorage.removeItem(sessionKey);
+  }, [auctionId, user]);
+
+  // 페이지 언로드 시 실시간 입찰 내역 저장 (새로고침 시에만)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveRealtimeBids(messages);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [messages, saveRealtimeBids]);
+
+  // 컴포넌트 언마운트 시 실시간 입찰 내역 삭제 (페이지 이탈 시)
+  useEffect(() => {
+    return () => {
+      clearRealtimeBids();
+    };
+  }, [clearRealtimeBids]);
 
   useEffect(() => {
     if (user && auctionId) {
@@ -247,6 +371,33 @@ export default function BidPage() {
       alert("로그인이 필요하거나 서버 연결이 끊어졌습니다.");
       return;
     }
+    
+    // 로컬 스토리지에 입찰 내역 저장
+    const bidRecord = {
+      auctionId: parseInt(auctionId),
+      productName: auction?.productName || "상품명 없음",
+      description: auction?.description,
+      myBid: amount,
+      currentBid: amount,
+      bidTime: new Date().toISOString(),
+      imageUrl: auction?.imageUrl,
+      status: 'active' as const
+    };
+    
+    // 기존 입찰 내역 가져오기
+    const existingBids = JSON.parse(localStorage.getItem(`bidHistory_${user.userUUID}`) || '[]');
+    
+    // 같은 경매에 대한 기존 입찰이 있으면 업데이트, 없으면 추가
+    const existingBidIndex = existingBids.findIndex((bid: any) => bid.auctionId === parseInt(auctionId));
+    if (existingBidIndex >= 0) {
+      existingBids[existingBidIndex] = bidRecord;
+    } else {
+      existingBids.push(bidRecord);
+    }
+    
+    // 로컬 스토리지에 저장
+    localStorage.setItem(`bidHistory_${user.userUUID}`, JSON.stringify(existingBids));
+    
     sendMessage("/app/auction/bid", { auctionId, amount });
     setCanBid(false);
   };
@@ -278,6 +429,9 @@ export default function BidPage() {
   // 상세 페이지와 동일한 경매 이름 추출 함수 추가
   const getAuctionName = (auction: any) =>
     auction.product?.productName || auction.productName || auction.name || auction.auctionName || "경매 상품";
+
+  // 최고 입찰자 상태에 따라 버튼 비활성화
+  const isHighestBidder = user && auction && auction.highestBidderUUID === user.userUUID;
 
   if (isLoading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   if (!user) return <div className="flex justify-center items-center min-h-screen">로그인이 필요합니다.</div>;
@@ -312,19 +466,11 @@ export default function BidPage() {
                     <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-col items-start justify-start max-w-inherit overflow-clip p-0 relative w-full">
                       
                       {/* 브레드크럼 */}
-                      <div className="relative shrink-0 w-full">
-                        <div className="relative size-full">
-                          <div className="[flex-flow:wrap] bg-clip-padding border-0 border-[transparent] border-solid box-border content-start flex gap-2 items-start justify-start p-[16px] relative w-full">
-                            <Link href="/" className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">
-                              홈
-                            </Link>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">수집품</span>
-                            <span className="font-['Work_Sans:Medium',sans-serif] font-medium text-[#5c738a] text-[16px] leading-[24px]">/</span>
-                            <span className="font-['Work_Sans:Medium','Noto_Sans_KR:Regular',sans-serif] font-medium text-[#0f1417] text-[16px] leading-[24px]">{getAuctionName(auction)}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <Breadcrumb 
+                        category={category}
+                        productName={getAuctionName(auction)}
+                        isBidPage={true}
+                      />
 
                       {/* 제목 */}
                       <div className="relative shrink-0 w-full">
@@ -499,13 +645,13 @@ export default function BidPage() {
                           <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row items-start justify-start px-4 py-3 relative w-full">
                             <button
                               onClick={handleBidClick}
-                              disabled={!canBid || timeLeft === "경매 종료"}
+                              disabled={isHighestBidder || !canBid || timeLeft === "경매 종료"}
                               className="basis-0 bg-[#dbe8f2] grow h-10 max-w-[480px] min-h-px min-w-[84px] relative rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c5d6e6] transition-colors"
                             >
                               <div className="flex flex-row items-center justify-center max-w-inherit min-w-inherit overflow-clip relative size-full">
                                 <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border content-stretch flex flex-row h-10 items-center justify-center max-w-inherit min-w-inherit px-4 py-0 relative w-full">
                                   <div className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[14px] leading-[21px] text-center">
-                                    입찰하기
+                                    {isHighestBidder ? "최고 입찰자입니다" : "입찰하기"}
                                   </div>
                                 </div>
                               </div>
@@ -521,80 +667,111 @@ export default function BidPage() {
                                           </div>
                   </div>
 
-                  {/* 오른쪽: 실시간 입찰 내역 */}
+                  {/* 오른쪽: 입찰 내역 (탭 형태) */}
                   <div className="basis-0 grow max-w-[700px] min-h-px min-w-px relative shrink-0 pl-4">
                     <div className="bg-white rounded-lg shadow-sm border border-[#e5e8eb] h-full flex flex-col">
                       
-                      {/* 실시간 입찰 내역 헤더 */}
-                      <div className="p-6 border-b border-[#e5e8eb]">
-                        <h2 className="font-['Work_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold text-[#0f1417] text-[20px] leading-[25px]">
-                          실시간 입찰 내역
-                        </h2>
-                        <p className="text-[#5c738a] text-[14px] mt-1">
-                          총 {messages.length}건의 입찰
-                        </p>
+                      {/* 탭 헤더 */}
+                      <div className="flex border-b border-[#e5e8eb]">
+                        <button
+                          onClick={() => setActiveTab('realtime')}
+                          className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+                            activeTab === 'realtime'
+                              ? 'text-[#0f1417] border-b-2 border-[#0f1417]'
+                              : 'text-[#5c738a] hover:text-[#0f1417]'
+                          }`}
+                        >
+                          실시간 입찰 ({messages.length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('history')}
+                          className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+                            activeTab === 'history'
+                              ? 'text-[#0f1417] border-b-2 border-[#0f1417]'
+                              : 'text-[#5c738a] hover:text-[#0f1417]'
+                          }`}
+                        >
+                          전체 입찰 내역
+                        </button>
                       </div>
 
-                      {/* 실시간 입찰 내역 목록 */}
-                      <div className="flex-1 p-4 min-h-0">
-                        <div 
-                          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                          ref={chatContainerRef}
-                        >
-                          {messages.length > 0 ? (
-                            <div className="space-y-3">
-                              {messages
-                                .slice()
-                                .reverse()
-                                .map((message) => (
-                                  <div
-                                    key={message.id}
-                                    className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-200 ${
-                                      message.isMe
-                                        ? "bg-[#dbe8f2] border-l-4 border-[#0f1417] ml-4"
-                                        : "bg-gray-50 border-l-4 border-[#5c738a] mr-4"
-                                    }`}
-                                  >
-                                    <div className="flex-1">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-base font-bold ${
-                                          message.isMe ? "text-[#0f1417]" : "text-[#5c738a]"
-                                        }`}>
-                                          {message.isMe ? "나" : message.sender}
-                                        </span>
-                                        <span className="text-xs text-[#5c738a] bg-white px-2 py-1 rounded-full">
-                                          {message.timestamp.toLocaleTimeString([], {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit'
-                                          })}
-                                        </span>
+                      {/* 탭 컨텐츠 */}
+                      <div className="flex-1 min-h-0">
+                        {activeTab === 'realtime' ? (
+                          /* 실시간 입찰 내역 */
+                          <div className="h-full flex flex-col">
+                            <div className="p-4 border-b border-[#e5e8eb]">
+                              <p className="text-[#5c738a] text-[14px]">
+                                실시간으로 진행되는 입찰을 확인하세요
+                              </p>
+                            </div>
+                            <div className="flex-1 p-4 min-h-0">
+                              <div 
+                                className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                                ref={chatContainerRef}
+                              >
+                                {messages.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {messages
+                                      .slice()
+                                      .reverse()
+                                      .map((message) => (
+                                        <div
+                                          key={message.id}
+                                          className={`flex items-start gap-3 p-4 rounded-xl transition-all duration-200 ${
+                                            message.isMe
+                                              ? "bg-[#dbe8f2] border-l-4 border-[#0f1417] ml-4"
+                                              : "bg-gray-50 border-l-4 border-[#5c738a] mr-4"
+                                          }`}
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className={`text-base font-bold ${
+                                                message.isMe ? "text-[#0f1417]" : "text-[#5c738a]"
+                                              }`}>
+                                                {message.isMe ? "나" : message.sender}
+                                              </span>
+                                              <span className="text-xs text-[#5c738a] bg-white px-2 py-1 rounded-full">
+                                                {message.timestamp.toLocaleTimeString([], {
+                                                  hour: '2-digit',
+                                                  minute: '2-digit',
+                                                  second: '2-digit'
+                                                })}
+                                              </span>
+                                            </div>
+                                            <div className="text-base font-semibold text-[#0f1417]">
+                                              {message.text}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center">
+                                    <div className="text-center">
+                                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
+                                        </svg>
                                       </div>
-                                      <div className="text-base font-semibold text-[#0f1417]">
-                                        {message.text}
-                                      </div>
+                                      <p className="text-[#5c738a] text-base">
+                                        아직 실시간 입찰이 없습니다.
+                                      </p>
+                                      <p className="text-[#5c738a] text-sm mt-1">
+                                        첫 번째 입찰자가 되어보세요!
+                                      </p>
                                     </div>
                                   </div>
-                                ))}
-                            </div>
-                          ) : (
-                            <div className="h-full flex items-center justify-center">
-                              <div className="text-center">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10m0 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0v8a2 2 0 002 2h6a2 2 0 002-2V8M9 12h6" />
-                                  </svg>
-                                </div>
-                                <p className="text-[#5c738a] text-base">
-                                  아직 입찰 내역이 없습니다.
-                                </p>
-                                <p className="text-[#5c738a] text-sm mt-1">
-                                  첫 번째 입찰자가 되어보세요!
-                                </p>
+                                )}
                               </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          /* 전체 입찰 내역 */
+                          <div className="h-full">
+                            <UnifiedBidHistory auctionId={auctionId} maxItems={20} />
+                          </div>
+                        )}
                       </div>
 
                     </div>
