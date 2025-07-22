@@ -87,3 +87,37 @@ export const getBidHistoryByAuctionWithPaging = async (auctionId: string, page: 
 //   });
 //   return res.json();
 // };
+
+// 마이페이지 - 입찰한 경매 목록 조회
+export const getMyAuctionHistory = async () => {
+  const res = await fetch(`${API_BASE_URL}/auth/mypage/auctions`, {
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+// 마이페이지 - 관심목록(찜) 조회
+export const getMyFavorites = async () => {
+  const res = await fetch(`${API_BASE_URL}/auth/mypage/favorites`, {
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+// 관심 경매 등록
+export const addFavorite = async (auctionId: number) => {
+  const res = await fetch(`${API_BASE_URL}/auth/favorites?auctionId=${auctionId}`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+// 관심 경매 해제
+export const removeFavorite = async (auctionId: number) => {
+  const res = await fetch(`${API_BASE_URL}/auth/favorites?auctionId=${auctionId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  return res.json();
+};
