@@ -92,12 +92,10 @@ export default function AdminAuctionListPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ 상태 구분
-  const ongoingAuctions = auctions.filter((a) =>
-    now.isAfter(dayjs(a.startTime)) && now.isBefore(dayjs(a.endTime))
-  );
-  const upcomingAuctions = auctions.filter((a) => now.isBefore(dayjs(a.startTime)));
-  const finishedAuctions = auctions.filter((a) => now.isAfter(dayjs(a.endTime)));
+  // ✅ 상태 구분 - Status 기반 필터링으로 변경
+  const ongoingAuctions = auctions.filter((a) => a.status === 'ONGOING');
+  const upcomingAuctions = auctions.filter((a) => a.status === 'UPCOMING');
+  const finishedAuctions = auctions.filter((a) => a.status === 'FINISHED');
 
   // ✅ 필터 적용
   const applyFilter = (list: Auction[], type: "ONGOING" | "UPCOMING" | "FINISHED") => {

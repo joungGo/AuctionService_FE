@@ -146,19 +146,12 @@ export default function AuctionPage() {
     return () => clearInterval(interval);
   }, [auction?.endTime]);
 
+  // 경매 상태 체크 (Status 기반)
   useEffect(() => {
-    if (!auction?.startTime || !auction?.endTime) return;
-    const checkAuctionStatus = () => {
-      const now = new Date().getTime();
-      const start = new Date(auction.startTime).getTime();
-      const end = new Date(auction.endTime).getTime();
-      setIsAuctionOngoing(now >= start && now < end);
-      setIsAuctionScheduled(now < start);
-    };
-    checkAuctionStatus();
-    const interval = setInterval(checkAuctionStatus, 1000);
-    return () => clearInterval(interval);
-  }, [auction?.startTime, auction?.endTime]);
+    if (!auction) return;
+    setIsAuctionOngoing(auction.status === 'ONGOING');
+    setIsAuctionScheduled(auction.status === 'UPCOMING');
+  }, [auction?.status]);
 
   // 경매 상세 진입 시 내 관심목록에 있는지 확인
   useEffect(() => {
