@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: false,
   
-  // 타입 검사 비활성화
+  // 타입 검사 비활성화.
   typescript: {
     ignoreBuildErrors: true,
   },
