@@ -93,18 +93,14 @@ function SearchContent() {
 
     // 상태 필터링
     if (statusFilter) {
-      const now = dayjs();
       filtered = filtered.filter(auction => {
-        const start = dayjs(auction.startTime);
-        const end = dayjs(auction.endTime);
-        
         switch (statusFilter) {
           case 'live':
-            return now.isAfter(start) && now.isBefore(end);
+            return auction.status === 'ONGOING';
           case 'upcoming':
-            return now.isBefore(start);
+            return auction.status === 'UPCOMING';
           case 'ended':
-            return now.isAfter(end);
+            return auction.status === 'FINISHED';
           default:
             return true;
         }

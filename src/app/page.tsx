@@ -101,12 +101,10 @@ export default function AuctionPage() {
     return () => clearInterval(interval);
   }, [auctions]);
 
-  // 필터링 - 기존 로직 그대로 유지
-  const now = dayjs();
-  const ongoingAuctions = auctions.filter(
-    (a) => now.isAfter(dayjs(a.startTime)) && now.isBefore(dayjs(a.endTime))
-  );
-  const upcomingAuctions = auctions.filter((a) => now.isBefore(dayjs(a.startTime)));
+  // 필터링 - Status 기반 필터링으로 변경
+  const ongoingAuctions = auctions.filter((a) => a.status === 'ONGOING');
+  const upcomingAuctions = auctions.filter((a) => a.status === 'UPCOMING');
+  const finishedAuctions = auctions.filter((a) => a.status === 'FINISHED');
 
   // 인기 상품 로직 - 현재 입찰가 기준으로 정렬
   const popularAuctions = auctions
