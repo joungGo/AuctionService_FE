@@ -7,7 +7,7 @@ This is a [Next.js](https://nextjs.org) project for an auction service.
 ### Backend Server Configuration
 
 - **Development**: `http://localhost:8080/api`
-- **Production**: `https://auctionservice.site/api` (via Next.js API proxy)
+- **Production**: `https://bidflow.cloud/api` (via Next.js API proxy)
 
 ### Mixed Content Issue Fix
 
@@ -22,7 +22,7 @@ In production, all API calls are routed through `/api/proxy/[...path]` to resolv
 
 Example:
 - Client calls: `https://auction-service-fe.vercel.app/api/proxy/auth/login`
-- Proxy forwards to: `https://auctionservice.site/api/auth/login`
+- Proxy forwards to: `https://bidflow.cloud/api/auth/login`
 
 ### Environment Variables
 
@@ -74,7 +74,7 @@ Modern browsers block Mixed Content (HTTP requests from HTTPS pages) for securit
 
 **Production Architecture:**
 ```
-HTTPS Client → Next.js API Proxy → HTTPS Backend (auctionservice.site)
+HTTPS Client → Next.js API Proxy → HTTPS Backend (bidflow.cloud)
 ```
 
 ## WebSocket Limitations
