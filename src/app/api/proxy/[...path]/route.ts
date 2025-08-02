@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = 'https://auctionservice.site';
+const BACKEND_URL = 'https://bidflow.cloud';
 
 export async function GET(
   request: NextRequest,
