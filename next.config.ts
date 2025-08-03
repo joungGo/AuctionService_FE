@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: false,
   
   // 타입 검사 비활성화.
-  typescript: {
+  52.65.242.120  typescript: {
     ignoreBuildErrors: true,
   },
   

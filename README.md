@@ -34,9 +34,25 @@ NEXT_PUBLIC_API_URL=https://your-api-domain.com/api
 
 # WebSocket URL  
 NEXT_PUBLIC_WS_URL=https://your-api-domain.com/ws
+
+# Backend URL for API proxy (server-side only)
+BACKEND_URL=https://your-backend-domain.com
 ```
 
-**Note**: Environment variables must be prefixed with `NEXT_PUBLIC_` to be available in the browser.
+**Note**: 
+- Environment variables must be prefixed with `NEXT_PUBLIC_` to be available in the browser
+- `BACKEND_URL` is used server-side only and should be set in Vercel environment variables
+
+### Vercel Environment Variables Setup
+
+For production deployment on Vercel, set these environment variables:
+
+1. Go to your Vercel project dashboard
+2. Navigate to Settings → Environment Variables
+3. Add the following variables:
+   - `BACKEND_URL`: Your actual backend server URL (e.g., `https://your-backend-domain.com`)
+   - `NEXT_PUBLIC_API_URL`: Your API base URL (e.g., `https://your-backend-domain.com/api`)
+   - `NEXT_PUBLIC_WS_URL`: Your WebSocket URL (e.g., `wss://your-backend-domain.com/ws`)
 
 ## Getting Started
 

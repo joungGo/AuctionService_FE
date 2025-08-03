@@ -9,8 +9,21 @@ import { getApiBaseUrl } from "@/lib/config";
 import SlideContainer from "@/components/SlideContainer";
 import InfiniteScrollCarousel from "@/components/InfiniteScrollCarousel";
 
-// 히어로 섹션 배경 이미지만 유지 (UI 디자인 요소)
-const imgHeroBackground = "http://localhost:3845/assets/c5a45c49b9693bc77cdfcadb467fef26dcfb67f1.png";
+// 히어로 섹션 배경 이미지 - 환경에 따라 동적 설정
+const getHeroBackgroundImage = () => {
+  if (typeof window !== 'undefined') {
+    // 프로덕션 환경에서는 상대 경로 사용
+    if (window.location.protocol === 'https:' || 
+        window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('bidflow.cloud')) {
+      return '/assets/c5a45c49b9693bc77cdfcadb467fef26dcfb67f1.png';
+    }
+  }
+  // 개발 환경에서는 localhost 사용
+  return "http://localhost:3845/assets/c5a45c49b9693bc77cdfcadb467fef26dcfb67f1.png";
+};
+
+const imgHeroBackground = getHeroBackgroundImage();
 
 export default function AuctionPage() {
   const router = useRouter();
