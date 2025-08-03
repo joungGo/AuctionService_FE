@@ -15,7 +15,7 @@ const getWsUrl = () => {
     // 클라이언트 사이드에서 실행
     if (window.location.protocol === 'https:') {
       // 프로덕션 환경 (HTTPS/WSS) - ALB를 통한 표준 포트 사용
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'wss://auctionservice.site/ws';
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'wss://bidflow.cloud/ws';
       console.log('[socket.ts] Production WSS URL:', wsUrl);
       return wsUrl;
     }

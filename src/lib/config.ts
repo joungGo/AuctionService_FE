@@ -22,7 +22,7 @@ export const getApiBaseUrl = (): string => {
     // Vercel 배포 환경이거나 HTTPS 프로토콜인 경우 프록시 사용
     if (window.location.protocol === 'https:' || 
         window.location.hostname.includes('vercel.app') ||
-        window.location.hostname.includes('auctionservice.site')) {
+        window.location.hostname.includes('bidflow.cloud')) {
       console.log('[config.ts] Production environment detected, using proxy URL: /api/proxy');
       return '/api/proxy';
     }
@@ -53,7 +53,7 @@ export const getWsUrl = (): string => {
   if (typeof window !== 'undefined') {
     if (window.location.protocol === 'https:') {
       // 프로덕션 환경 - HTTPS 도메인 사용
-      return 'wss://auctionservice.site/ws';
+      return 'wss://bidflow.cloud/ws';
     }
   }
 

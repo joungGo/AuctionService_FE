@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = 'https://auctionservice.site';
+// 환경에 따라 백엔드 URL 설정
+const getBackendUrl = () => {
+  // 환경변수가 설정되어 있으면 우선 사용
+  if (process.env.BACKEND_URL) {
+    return process.env.BACKEND_URL;
+  }
+  
+  // Vercel 배포 환경에서는 실제 백엔드 서버 URL 사용
+  if (process.env.VERCEL_ENV === 'production') {
+    return 'http://52.65.242.120:8080'; // 실제 백엔드 서버 주소
+  }
+  
+  // 개발 환경에서는 로컬 서버 사용
+  return 'http://localhost:8080';
+};
+
+const BACKEND_URL = getBackendUrl();
 
 export async function GET(
   request: NextRequest,
