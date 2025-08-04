@@ -9,7 +9,7 @@ import { getApiBaseUrl } from "@/lib/config";
 import SlideContainer from "@/components/SlideContainer";
 import InfiniteScrollCarousel from "@/components/InfiniteScrollCarousel";
 
-// 히어로 섹션 배경 이미지 - 환경에 따라 동적 설정
+// 히어로 섹션 배경 이미지 - 환경에 따라 동적 설정.
 const getHeroBackgroundImage = () => {
   if (typeof window !== 'undefined') {
     // 프로덕션 환경에서는 상대 경로 사용
