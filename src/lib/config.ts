@@ -5,7 +5,7 @@
 
 /**
  * 현재 환경에 맞는 API Base URL을 반환합니다.
- * 프로덕션 환경에서는 EC2 IP를 직접 사용합니다.
+ * 프로덕션 환경에서는 ALB를 통한 HTTPS를 사용합니다.
  */
 export const getApiBaseUrl = (): string => {
   // 환경변수가 설정되어 있으면 우선 사용
@@ -18,10 +18,10 @@ export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     console.log('[config.ts] Running on client side, protocol:', window.location.protocol, 'hostname:', window.location.hostname);
     
-    // 프로덕션 환경에서는 EC2 IP 직접 사용
+    // 프로덕션 환경에서는 ALB를 통한 HTTPS 사용
     if (window.location.protocol === 'https:') {
-      console.log('[config.ts] Production environment detected, using EC2 IP: http://13.125.44.217:8080/api');
-      return 'http://13.125.44.217:8080/api';
+      console.log('[config.ts] Production environment detected, using ALB HTTPS: https://bidflow.cloud/api');
+      return 'https://bidflow.cloud/api';
     }
   }
 
@@ -32,7 +32,7 @@ export const getApiBaseUrl = (): string => {
 
 /**
  * 현재 환경에 맞는 WebSocket URL을 반환합니다.
- * 프로덕션 환경에서는 EC2 IP를 직접 사용합니다.
+ * 프로덕션 환경에서는 ALB를 통한 WSS를 사용합니다.
  */
 export const getWsUrl = (): string => {
   // 환경변수가 설정되어 있으면 우선 사용
@@ -43,8 +43,8 @@ export const getWsUrl = (): string => {
   // 클라이언트 사이드에서 실행 중인 경우
   if (typeof window !== 'undefined') {
     if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 - EC2 IP 직접 사용
-      return 'ws://13.125.44.217:8080/ws';
+      // 프로덕션 환경 - ALB를 통한 WSS 사용
+      return 'wss://bidflow.cloud/ws';
     }
   }
 
