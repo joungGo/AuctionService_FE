@@ -52,7 +52,7 @@ export const getWsUrl = (): string => {
   // 클라이언트 사이드에서 실행 중인 경우
   if (typeof window !== 'undefined') {
     if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 - HTTPS 도메인 사용
+      // 프로덕션 환경 - WSS 도메인 사용 (네이티브 WebSocket)
       return 'wss://bidflow.cloud/ws';
     }
   }

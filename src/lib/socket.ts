@@ -14,14 +14,14 @@ const getWsUrl = () => {
   if (typeof window !== 'undefined') {
     // 클라이언트 사이드에서 실행
     if (window.location.protocol === 'https:') {
-      // 프로덕션 환경 (HTTPS/WSS) - ALB를 통한 표준 포트 사용
+      // 프로덕션 환경 (HTTPS/WSS) - 네이티브 WebSocket 사용
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'wss://bidflow.cloud/ws';
       console.log('[socket.ts] Production WSS URL:', wsUrl);
       return wsUrl;
     }
   }
   // 개발 환경 또는 서버 사이드
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/ws";
   console.log('[socket.ts] Development WS URL:', wsUrl);
   return wsUrl;
 };
@@ -34,6 +34,7 @@ export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
   stompClient = new Client({
     webSocketFactory: () => {
       let wsUrl = getWsUrl();
+      
       // wsUrl이 ws:// 또는 wss://로 시작하는지 확인
       if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
         // http/https를 ws/wss로 변환
