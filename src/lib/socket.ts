@@ -31,6 +31,11 @@ const getWsUrl = () => {
  * @returns STOMP Client
  */
 export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
+  // 쿠키 확인 로깅
+  if (typeof window !== 'undefined') {
+    console.log('[socket.ts] 현재 쿠키 확인:', document.cookie);
+  }
+
   stompClient = new Client({
     webSocketFactory: () => {
       let wsUrl = getWsUrl();
@@ -42,6 +47,7 @@ export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
         else if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
       }
       console.log(`[socket.ts] Creating native WebSocket connection to: ${wsUrl}`);
+      console.log(`[socket.ts] WebSocket 연결 시 쿠키 전송 확인:`, document.cookie);
       return new WebSocket(wsUrl);
     },
     connectHeaders: {
