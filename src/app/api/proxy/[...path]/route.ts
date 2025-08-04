@@ -9,7 +9,7 @@ const getBackendUrl = () => {
   
   // Vercel 배포 환경에서는 실제 백엔드 서버 URL 사용
   if (process.env.VERCEL_ENV === 'production') {
-    return 'http://52.65.242.120:8080'; // 실제 백엔드 서버 주소
+    return 'http://13.125.44.217:8080'; // 실제 백엔드 서버 주소
   }
   
   // 개발 환경에서는 로컬 서버 사용
