@@ -34,6 +34,12 @@ export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
   // 쿠키 확인 로깅
   if (typeof window !== 'undefined') {
     console.log('[socket.ts] 현재 쿠키 확인:', document.cookie);
+    console.log('[socket.ts] 쿠키 상세 정보:', {
+      domain: document.domain,
+      pathname: window.location.pathname,
+      protocol: window.location.protocol,
+      hostname: window.location.hostname
+    });
   }
 
   stompClient = new Client({
@@ -48,7 +54,16 @@ export const connectStomp = (userUUID?: string, auctionId?: string): Client => {
       }
       console.log(`[socket.ts] Creating native WebSocket connection to: ${wsUrl}`);
       console.log(`[socket.ts] WebSocket 연결 시 쿠키 전송 확인:`, document.cookie);
-      return new WebSocket(wsUrl);
+      
+      // WebSocket 생성 시 쿠키 전송 확인
+      const ws = new WebSocket(wsUrl);
+      console.log(`[socket.ts] WebSocket 객체 생성 완료, 쿠키 전송 상태:`, {
+        url: wsUrl,
+        cookies: document.cookie,
+        readyState: ws.readyState
+      });
+      
+      return ws;
     },
     connectHeaders: {
       ...(userUUID && { userUUID }),
